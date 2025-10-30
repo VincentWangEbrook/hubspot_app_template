@@ -1,0 +1,38 @@
+{
+  "name": "hubspot-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "node dist/main.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "start:dev": "NODE_ENV=development nest start --watch",
+    "start:test": "NODE_ENV=test nest start",
+    "start:prod": "NODE_ENV=production node dist/main"
+  },
+  "dependencies": {
+    "@hubspot/api-client": "^13.4.0",
+    "@nestjs/axios": "^4.0.1",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^3.2.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/jwt": "^11.0.1",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-fastify": "^11.0.0",
+    "@nestjs/typeorm": "^11.0.0",
+    "axios": "^1.7.0",
+    "bcrypt": "^6.0.0",
+    "fastify": "^5.6.1",
+    "fastify-raw-body": "^5.0.0",
+    "pg": "^8.12.0",
+    "stripe": "^14.16.0",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/node": "^20.12.12",
+    "@types/pg": "^8.11.6",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.0"
+  }
+}
