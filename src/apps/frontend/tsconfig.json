@@ -12,7 +12,7 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "noEmit": true,
     "incremental": true,
     "esModuleInterop": true,
@@ -21,13 +21,18 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "paths": {
+      /* 路径别名（简化组件导入，如 @/components/xxx 替代 ../../components/xxx） */
+      "@/*": ["./*"]
+    },
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

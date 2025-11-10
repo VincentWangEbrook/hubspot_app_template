@@ -1,0 +1,24 @@
+# 依赖目录
+node_modules
+/.pnp
+.pnp.js
+
+# 编译产物
+dist
+build
+
+# 日志文件
+logs
+*.log
+
+# 缓存文件
+.npm
+.eslintcache
+.prettiercache
+
+# 编辑器配置（可选，避免团队编辑器配置冲突）
+.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store

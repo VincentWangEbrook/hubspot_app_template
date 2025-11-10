@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
 import { EncryptionService } from '../../common/security/encryption.service';
+import { TenantMember, TenantMemberRole } from './entities/tenant-member.entity';
+import { User } from '../user/entities/user.entity';
 
 @Injectable()
 export class TenantService {
@@ -11,6 +13,10 @@ export class TenantService {
   constructor(
     @InjectRepository(Tenant)
     private readonly repo: Repository<Tenant>,
+    @InjectRepository(TenantMember)
+    private readonly memberRepo: Repository<TenantMember>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly encryption: EncryptionService,
   ) {}
 
@@ -96,5 +102,62 @@ export class TenantService {
 
   async getAllTenants() {
     return this.repo.find();
+  }
+
+  async listTenantsByUser(userId: string) {
+    const own = await this.repo.find({ where: { createdBy: userId } });
+    const memberships = await this.memberRepo.find({ where: { userId } });
+    const tenantIds = Array.from(new Set([...own.map(t => t.id), ...memberships.map(m => m.tenantId)]));
+    if (tenantIds.length === 0) return [];
+    return this.repo.find({ where: { id: In(tenantIds) } });
+  }
+
+  async addMember(tenantId: string, userId: string, role: TenantMemberRole = 'member') {
+    let m = await this.memberRepo.findOne({ where: { tenantId, userId } });
+    if (!m) {
+      m = this.memberRepo.create({ tenantId, userId, role });
+    } else {
+      m.role = role;
+    }
+    return this.memberRepo.save(m);
+  }
+
+  async removeMember(tenantId: string, userId: string) {
+    await this.memberRepo.delete({ tenantId, userId });
+    return { success: true };
+  }
+
+  async isMemberOrOwner(tenantId: string, userId: string) {
+    const t = await this.repo.findOne({ where: { id: tenantId } });
+    if (!t) return false;
+    if (t.createdBy === userId) return true;
+    const m = await this.memberRepo.findOne({ where: { tenantId, userId } });
+    return !!m;
+  }
+
+  async listMembers(tenantId: string) {
+    return this.memberRepo.find({ where: { tenantId } });
+  }
+
+  async addMemberByEmail(tenantId: string, email: string, role: TenantMemberRole = 'member') {
+    const user = await this.userRepo.findOne({ where: { email } });
+    if (!user) throw new Error('用户不存在');
+    return this.addMember(tenantId, user.id, role);
+  }
+
+  async listMembersWithUserInfo(tenantId: string) {
+    const members = await this.memberRepo.find({ where: { tenantId } });
+    if (members.length === 0) return [] as Array<TenantMember & { user?: Pick<User, 'id'|'email'|'username'> }>;
+    const userIds = Array.from(new Set(members.map(m => m.userId)));
+    const users = await this.userRepo.find({ where: { id: In(userIds) } });
+    const map = new Map(users.map(u => [u.id, { id: u.id, email: u.email, username: u.username }]));
+    return members.map(m => ({ ...m, user: map.get(m.userId) }));
+  }
+
+  async updateMemberRole(tenantId: string, userId: string, role: TenantMemberRole) {
+    const m = await this.memberRepo.findOne({ where: { tenantId, userId } });
+    if (!m) throw new Error('成员不存在');
+    m.role = role;
+    return this.memberRepo.save(m);
   }
 }

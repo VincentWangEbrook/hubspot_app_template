@@ -1,6 +1,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Client } from '@hubspot/api-client';
 import axios from 'axios';
 import * as crypto from 'crypto';
 import { TenantService } from '../tenant/tenant.service';
@@ -15,7 +16,8 @@ export class AuthService {
   constructor(
     private readonly config: ConfigService,
     private readonly tenantService: TenantService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly client: Client
   ) {}
 
   verifyJwt(token: string) {
@@ -26,13 +28,33 @@ export class AuthService {
     }
   }
 
-  getAuthorizeUrl(state: string) {
-    const url = new URL('https://app.hubspot.com/oauth/authorize');
-    url.searchParams.set('client_id', this.clientId || '');
-    url.searchParams.set('redirect_uri', this.redirectUri || '');
-    url.searchParams.set('scope', 'crm.schemas.contacts.write crm.objects.contacts.write crm.schemas.contacts.read crm.objects.contacts.read');
-    url.searchParams.set('state', state);
-    return url.toString();
+  getAuthorizationUrl(state: string) {
+    const scopes = [
+      'crm.schemas.contacts.write',
+      'crm.objects.contacts.write',
+      'crm.schemas.contacts.read',
+      'crm.objects.contacts.read',
+      'crm.objects.deals.read',
+    ];
+
+    return this.client.oauth.getAuthorizationUrl(
+      this.clientId || '',
+      this.redirectUri || '',
+      scopes.join(' '),
+      '',
+      state
+    );
+  }
+
+  async refreshTokensApi(code: string, refreshToken: string) {
+    const tokenData = await this.client.oauth.tokensApi.create(
+      'refresh_token',
+      code, this.redirectUri || '',
+      this.clientId || '',
+      this.clientSecret || '',
+      refreshToken
+    );
+    return tokenData;
   }
 
   async exchangeCodeForToken(code: string, tenantId: string) {
@@ -59,7 +81,7 @@ export class AuthService {
       return data;
     } catch (err: any) {
       this.logger.error('HubSpot token exchange failed', err?.response?.data ?? err.message);
-      throw err;
+      //throw err;
     }
   }
 }

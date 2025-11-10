@@ -7,17 +7,19 @@ export class UserController {
 
   @Post('register')
   async register(@Body() body: { email: string; password: string; username?: string }) {
-    return this.auth.register(body.email, body.password, body.username);
+    const user = await this.auth.register(body.email, body.password, body.username);
+    return { success: true, data: user };
   }
 
   @Post('login')
   async login(@Body() body: { email: string; password: string }) {
-    return this.auth.login(body.email, body.password);
+    const user = await this.auth.login(body.email, body.password);
+    return { success: true, data: user };
   }
 
   @Post('logout')
   async logout() {
-    return this.auth.logout();
+    return await this.auth.logout();
   }
 
   @Post('change-password')
@@ -27,6 +29,13 @@ export class UserController {
   ) {
     const token = (req.headers.authorization || '').replace('Bearer ', '');
     const user = this.auth.verifyJwt(token);
-    return this.auth.changePassword(user.sub, body.oldPassword, body.newPassword);
+    return await this.auth.changePassword(user.sub, body.oldPassword, body.newPassword);
+  }
+
+  @Post('update')
+  async edit(@Req() req: any, @Body() body: { username: string; }) {
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    const user = this.auth.verifyJwt(token);
+    return await this.auth.update(user.id, body.username);
   }
 }

@@ -1,5 +1,6 @@
-import { Entity, PrimaryColumn, Column, CreateDateColumn, Index, ManyToOne } from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
+
 /**
  * Tenant 表（租户注册表，存放租户的 meta 信息与加密后的 token）
  * - id: tenantId，由 crypto.randomUUID() 生成（Marketplace 安装回调时）
@@ -37,16 +38,19 @@ export class Tenant {
   @Column({ type: 'json', nullable: true })
   raw?: any;
 
+  @ManyToOne(() => User, (user) => user.tenants)
+  user: Partial<User>;
+
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
 
-  @ManyToOne(() => User, (user) => user.tenants)
-  user: User;
+  @UpdateDateColumn({ name: 'updated_at'})
+  updated_at: Date;
 
   constructor(
     id: string,
     name: string,
-    user: User,
+    user: Partial<User>,
     hubId: string,
     hubspotAccessToken?: string,
     hubspotRefreshToken?: string,
@@ -65,6 +69,7 @@ export class Tenant {
     this.createdBy = createdBy;
     this.raw = raw;
     this.created_at = new Date();
+    this.updated_at = new Date();
     this.user = user;
   }
 }

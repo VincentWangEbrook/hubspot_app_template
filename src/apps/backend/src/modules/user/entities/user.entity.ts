@@ -15,6 +15,9 @@ export class User {
   @Column({ nullable: true })
   username?: string;
 
+  @Column({ type: 'varchar', default: 'user' })
+  role: 'admin' | 'user';
+
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
 
@@ -32,5 +35,6 @@ export class User {
     this.password = password;
     this.username = username;
     this.created_at = new Date();
+    this.role = 'user';
   }
 }

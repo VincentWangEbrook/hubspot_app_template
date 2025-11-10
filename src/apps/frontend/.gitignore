@@ -1,0 +1,28 @@
+# 依赖目录
+node_modules
+/.pnp
+.pnp.js
+
+# Next.js 产物
+.next/
+out/  # 若用 next export 生成静态文件（SSR 模式无需）
+
+# 缓存文件
+.npm
+.eslintcache
+.prettiercache
+.next/cache
+
+# 日志文件
+logs
+*.log
+
+# 编辑器配置
+.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store
+
+# 静态资源临时文件
+public/*.log
