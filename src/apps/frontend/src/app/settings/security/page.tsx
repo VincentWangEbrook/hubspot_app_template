@@ -1,10 +1,10 @@
 'use client';
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/Card';
-import { Button } from '@/src/components/ui/Button';
-import { Input } from '@/src/components/ui/Input';
-import { Label } from '@/src/components/ui/Label';
-import { Separator } from '@/src/components/ui/Separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Separator } from '@/components/ui/Separator';
 
 export default function SecurityPage() {
   const [formData, setFormData] = useState({

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { User, LogIn, LogOut, Menu, X, ChevronDown, Loader2 } from 'lucide-react';
 import TenantSwitcher from './TenantSwitcher';
 import HubspotConnectButton from './HubSpotConnectButton';
-import { UserInfo } from '@/src/types';
-import { useUser } from '@/src/context/UserContext';
+import { UserInfo } from '@/types';
+import { useUser } from '@/context/UserContext';
 
 // 类型扩展：添加初始化状态
 type UserState = UserInfo | null | 'initializing';

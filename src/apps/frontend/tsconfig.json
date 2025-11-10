@@ -23,8 +23,7 @@
       }
     ],
     "paths": {
-      /* 路径别名（简化组件导入，如 @/components/xxx 替代 ../../components/xxx） */
-      "@/*": ["./*"]
+      "@/*": ["./src/*"]
     },
   },
   "include": [

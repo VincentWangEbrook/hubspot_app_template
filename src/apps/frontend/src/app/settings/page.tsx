@@ -1,10 +1,10 @@
 'use client';
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/Card';
-import { Button } from '@/src/components/ui/Button';
-import { Input } from '@/src/components/ui/Input';
-import { Label } from '@/src/components/ui/Label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/Avatar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 
 export default function SettingsPage() {
   // 核心修复：avatar 初始化为 null（而非空字符串）

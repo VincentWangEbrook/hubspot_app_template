@@ -1,8 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/src/context/UserContext';
-import { UserInfo } from '@/src/types';
+import { useUser } from '@/context/UserContext';
+import { UserInfo } from '@/types';
 import { apiFetch } from '../../lib/api';
 import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 

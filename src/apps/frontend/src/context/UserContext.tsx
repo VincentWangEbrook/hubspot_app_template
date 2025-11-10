@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { UserInfo } from '@/src/types'; // 从共享类型文件导入
+import { UserInfo } from '@/types'; // 从共享类型文件导入
 
 // 定义 Context 类型，明确暴露的状态和方法
 interface UserContextType {

@@ -1,12 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/Card';
-import { Button } from '@/src/components/ui/Button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/src/components/ui/Table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/src/components/ui/Dialog';
-import { Input } from '@/src/components/ui/Input';
-import { Label } from '@/src/components/ui/Label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/Select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 
 // 模拟账号数据
 const accountData = [

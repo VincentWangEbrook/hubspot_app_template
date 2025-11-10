@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { getServerSession } from 'next-auth';
+import { cookies } from 'next/headers';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { UserProvider } from '@/src/context/UserContext';
+import { UserProvider } from '@/context/UserContext';
 import Navbar from '../components/Navbar';
-import Sidebar from '@/src/components/Sidebar';
+import Sidebar from '@/components/Sidebar';
 
 const inter = Inter({ subsets: ['latin'] });
 

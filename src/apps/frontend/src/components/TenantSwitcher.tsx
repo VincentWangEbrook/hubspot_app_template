@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronDown, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
-import { apiFetch } from '@/src/lib/api';
+import { apiFetch } from '@/lib/api';
 
 export type Tenant = {
   id: string; // HubSpot 账户ID（租户ID）

@@ -1,11 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/Card';
-import { Button } from '@/src/components/ui/Button';
-import { Checkbox } from '@/src/components/ui/Checkbox';
-import { Label } from '@/src/components/ui/Label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/Select';
-import { Separator } from '@/src/components/ui/Separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Label } from '@/components/ui/Label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { Separator } from '@/components/ui/Separator';
 
 // 模拟角色和权限数据
 const roles = ['管理员', '普通用户', '只读用户'];

@@ -1,6 +1,6 @@
 // 移除 'use client' 标记，默认是 Server Component
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/Card';
-import { Button } from '@/src/components/ui/Button'; // 确保导入路径大小写正确
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button'; // 确保导入路径大小写正确
 
 // 定义数据类型
 interface DashboardData {
