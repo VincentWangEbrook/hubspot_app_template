@@ -6,8 +6,8 @@
 import { Controller, Get, Post, Body, Query, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { HubSpotService } from './hubspot.service';
 import { HubSpotContact, ApiResponse } from '@hubspot-app/shared/types/hubspot.types';
-import { Roles } from '../../common/security/roles.decorator';
-import { RolesGuard } from '../../common/security/roles.guard';
+import { Roles } from '@/common/security/roles.decorator';
+import { RolesGuard } from '@/common/security/roles.guard';
 import { TenantService } from '../tenant/tenant.service';
 import { FastifyRequest as Request } from 'fastify';
 

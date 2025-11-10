@@ -3,7 +3,6 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '@hubspot/api-client';
 import axios from 'axios';
-import * as crypto from 'crypto';
 import { TenantService } from '../tenant/tenant.service';
 
 @Injectable()

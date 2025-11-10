@@ -12,6 +12,7 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
+      "@/*": ["./src/*"],
       "@hubspot-app/shared/*": [
         "../../packages/shared/src/*"
       ]

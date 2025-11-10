@@ -3,9 +3,6 @@ import { AuthService } from './auth.service';
 import { TenantService } from '../tenant/tenant.service';
 import { FastifyRequest as Request } from 'fastify';
 import { TenantDbService } from '../tenant/tenant-db.service';
-import { Roles } from '../../common/security/roles.decorator';
-import { RolesGuard } from '../../common/security/roles.guard';
-import { User } from '../user/entities/user.entity';
 
 @Controller('api/auth')
 export class AuthController {

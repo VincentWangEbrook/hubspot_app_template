@@ -6,7 +6,7 @@ import { AuthController } from './auth.controller';
 import { TenantModule } from '../tenant/tenant.module';
 import { JwtService } from '@nestjs/jwt';
 import { Client } from '@hubspot/api-client';
-import { SharedModule } from '../../shared/shared.module';
+import { SharedModule } from '@/shared/shared.module';
 
 @Module({
   imports: [ConfigModule, HttpModule, TenantModule, SharedModule],
