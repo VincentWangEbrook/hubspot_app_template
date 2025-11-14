@@ -8,7 +8,7 @@ if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
 const CONFIG = {
   PROTECTED_ROUTES: ['/dashboard', '/admin', '/settings'], // 需要登录的路由前缀
   LOGIN_PATH: '/login', // 登录页路径
-  API_AUTH_CHECK: new URL('auth/me', process.env.NEXT_PUBLIC_BACKEND_URL).toString(),
+  API_AUTH_CHECK: new URL('/auth/me', process.env.NEXT_PUBLIC_BACKEND_URL).toString(),
   CACHE_TTL: 30, // 鉴权结果缓存时间（秒），减少重复请求
 };
 

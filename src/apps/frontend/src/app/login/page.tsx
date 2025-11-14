@@ -20,21 +20,13 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
-  const { login } = useUser();
+  const { user, login } = useUser();
 
   // 页面加载时：检查是否已登录，若已登录直接跳转到仪表盘（优化：添加加载状态避免闪烁）
-  // useEffect(() => {
-  //   const checkLoginStatus = () => {
-  //     const storedToken = localStorage.getItem('jwt');
-  //     const storedUser = localStorage.getItem('user');
-  //     if (storedToken && storedUser) {
-  //       // 延迟跳转，避免页面闪烁
-  //       setTimeout(() => router.push('/dashboard'), 100);
-  //     }
-  //   };
-
-  //   checkLoginStatus();
-  // }, [router]);
+  if (user) {
+    // 延迟跳转，避免页面闪烁
+    setTimeout(() => router.push(redirectTo), 100);
+  }
 
   // 邮箱验证（增强：支持中文邮箱前缀）
   const validateEmail = (email: string) => {
