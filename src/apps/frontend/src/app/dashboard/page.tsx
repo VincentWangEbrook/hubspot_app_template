@@ -8,8 +8,9 @@ import {
 } from 'recharts';
 import {
   Users, FileText, DollarSign, Activity, AlertCircle,
-  CheckCircle, RefreshCw, ChevronDown, Menu, X, LogOut
+  CheckCircle, RefreshCw, Menu, X
 } from 'lucide-react';
+import { UserInfo } from '@/types';
 
 // ========================= 类型定义 =========================
 interface StatCardData {
@@ -61,7 +62,7 @@ interface MockApiResponse {
 
 // ========================= 主组件 =========================
 export default function DashboardPage() {
-  const { user, isLoading: userLoading, logout } = useUser();
+  const { user } = useUser();
   const router = useRouter();
 
   // 状态管理
@@ -76,6 +77,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
 
   const PIE_COLORS = useMemo(() => [
     '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'
@@ -202,7 +204,6 @@ export default function DashboardPage() {
 
   // ========================= 关键修复：直接定义 apiFetch 函数 =========================
   const apiFetch = async (url: string, options?: any): Promise<MockApiResponse> => {
-    console.log(url)
     if (url.includes('/dashboard/data')) {
       // 注意：你之前用了 options.params，但实际调用时没传 params（用的 URL 拼接），这里调整为从 URL 解析 tenantId
       const urlObj = new URL(url, window.location.origin);
@@ -238,7 +239,7 @@ export default function DashboardPage() {
 
   // ========================= 初始化逻辑 =========================
   useEffect(() => {
-    if (!userLoading && !user) {
+    if (!isLoading && !user) {
       router.push('/login');
       return;
     }
@@ -262,7 +263,7 @@ export default function DashboardPage() {
 
     window.addEventListener('tenant:changed', handleTenantChange);
     return () => window.removeEventListener('tenant:changed', handleTenantChange);
-  }, [user, userLoading, router, activeTenantId]);
+  }, [user, router, activeTenantId]);
 
   useEffect(() => {
     if (activeTenantId && user) {
@@ -277,13 +278,8 @@ export default function DashboardPage() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
-  };
-
   // ========================= 状态渲染 =========================
-  if (userLoading || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen pt-16 bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center">
         <RefreshCw size={40} className="text-blue-600 animate-spin mb-4" />
@@ -354,13 +350,6 @@ export default function DashboardPage() {
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
             >
               <RefreshCw size={20} />
-            </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg text-sm transition-colors"
-            >
-              <LogOut size={16} />
-              <span>退出登录</span>
             </button>
             <button
               className="sm:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"

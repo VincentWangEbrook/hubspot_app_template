@@ -2,9 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Tenant } from './entities/tenant.entity';
-import { EncryptionService } from '@/common/security/encryption.service';
+import { EncryptionService } from '../../common/security/encryption.service';
 import { TenantMember, TenantMemberRole } from './entities/tenant-member.entity';
-import { User } from '../user/entities/user.entity';
+import { UserEntity } from '../user/entities/user.entity';
 
 @Injectable()
 export class TenantService {
@@ -15,8 +15,8 @@ export class TenantService {
     private readonly repo: Repository<Tenant>,
     @InjectRepository(TenantMember)
     private readonly memberRepo: Repository<TenantMember>,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    @InjectRepository(UserEntity)
+    private readonly userRepo: Repository<UserEntity>,
     private readonly encryption: EncryptionService,
   ) {}
 
@@ -147,7 +147,7 @@ export class TenantService {
 
   async listMembersWithUserInfo(tenantId: string) {
     const members = await this.memberRepo.find({ where: { tenantId } });
-    if (members.length === 0) return [] as Array<TenantMember & { user?: Pick<User, 'id'|'email'|'username'> }>;
+    if (members.length === 0) return [] as Array<TenantMember & { user?: Pick<UserEntity, 'id'|'email'|'username'> }>;
     const userIds = Array.from(new Set(members.map(m => m.userId)));
     const users = await this.userRepo.find({ where: { id: In(userIds) } });
     const map = new Map(users.map(u => [u.id, { id: u.id, email: u.email, username: u.username }]));

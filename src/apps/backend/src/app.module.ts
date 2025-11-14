@@ -3,7 +3,7 @@
  * Copyright © 2025 eBrook Group (https://www.ebrook.com.tw)
  */
 
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import * as path from 'path';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -12,6 +12,9 @@ import { AuthModule } from './modules/auth/auth.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { HubSpotModule } from './modules/hubspot/hubspot.module';
 import { UserModule } from './modules/user/user.module';
+import { RateLimiterModule } from 'nestjs-rate-limiter';
+import { rateLimiterOptions } from './rate-limiter.config';
+import { SessionExpireMiddleware } from './middlewares/session-expire.middleware';
 
 @Module({
   imports: [
@@ -35,7 +38,18 @@ import { UserModule } from './modules/user/user.module';
     AuthModule,
     SubscriptionModule,
     HubSpotModule,
-    UserModule
-  ],
+    UserModule,
+    RateLimiterModule.register(rateLimiterOptions),
+  ]
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // 注册全局中间件，对所有路由生效
+    consumer.apply(SessionExpireMiddleware)
+    .exclude(
+      '/api/auth/login', // 登录接口
+      '/api/auth/register', // 注册接口
+    )
+    .forRoutes('*');
+  }
+}

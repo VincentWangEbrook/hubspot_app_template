@@ -1,30 +1,23 @@
-import { Controller, Get, Req, Post, Body, ForbiddenException, Param } from '@nestjs/common';
+import { Controller, Get, Req, Res, Post, Body, ForbiddenException, Param } from '@nestjs/common';
 import { FastifyRequest as Request } from 'fastify';
 import { TenantService } from './tenant.service';
 import { JwtService } from '@nestjs/jwt';
 import { TenantMemberRole } from './entities/tenant-member.entity';
+import { FastifyRequest, FastifyReply } from 'fastify';
 
 @Controller('api/tenant')
 export class TenantController {
   constructor(private readonly tenants: TenantService, private readonly jwtService: JwtService) {}
 
   @Get('my')
-  async getMyTenants(@Req() req: Request) {
-    const authHeader = req.headers['authorization'] as string | undefined;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return { success: false, message: 'Missing auth' };
+  async getMyTenants(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
+    if (!req.session.user || !req.session.user.id) {
+      return res.status(401).send({ success: false, message: '未登录' });
     }
-    let payload: any;
-    try {
-      payload = this.jwtService.verify(authHeader.slice(7));
-    } catch(err) {
-      console.error('Invalid token', err);
-      return { success: false, message: 'Invalid token' };
-    }
-    const userId = payload?.sub as string;
-    if (!userId) return { success: false, message: 'Invalid token payload' };
+
+    const userId = req.session.user.id;
     const mine = await this.tenants.listTenantsByUser(userId);
-    return { success: true, data: mine };
+    return res.send({ success: true, data: mine });
   }
 
   @Post('members/add')

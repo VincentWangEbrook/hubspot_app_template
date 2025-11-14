@@ -38,7 +38,7 @@ const menuConfig = [
   },
   {
     label: 'Settings',
-    path: '/settings',
+    path: '/settings/profile',
     icon: <Settings size={18} />,
     isParent: false,
   },

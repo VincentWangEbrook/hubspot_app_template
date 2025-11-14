@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 // 1. 替换路由包：从 next/navigation 导入 useRouter
 import { useRouter } from 'next/navigation'; 
 import axios from 'axios';
-import { apiFetch } from '../../lib/api';
+import { apiFetch } from '../../lib/apiFetch';
 
 export default function Callback() {
   const router = useRouter(); // 2. 初始化 App Router 的路由实例

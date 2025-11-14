@@ -6,6 +6,7 @@ node_modules
 # 编译产物
 dist
 build
+sessions
 
 # 日志文件
 logs

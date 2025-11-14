@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from 'next/navigation'; // Use `next/navigation` for App Router (Next.js 13+)
 import { useState, useEffect } from 'react';
-import { apiFetch } from '../lib/api';
+import { apiFetch } from '../lib/apiFetch';
 
 // Custom hook to check login status
 export function useAuth() {
@@ -19,7 +19,7 @@ export function useAuth() {
 
 // Helper function to handle logout logic
 async function performLogout(apiFetch: any, router: any) {
-  const response = await apiFetch('user/logout', { data: {}});
+  const response = await apiFetch('/auth/logout', { data: {}});
 
   if (!response.success) {
     throw new Error(response.message || 'Logout failed unexpectedly');

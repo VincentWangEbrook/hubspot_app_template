@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react';
-import { apiFetch } from '../../../lib/api';
+import { apiFetch } from '../../../lib/apiFetch';
 
 type Tenant = { id: string; name: string; createdBy?: string };
 type Member = { id: string; tenantId: string; userId: string; role: 'owner'|'admin'|'member'; user?: { id: string; email: string; username?: string } };

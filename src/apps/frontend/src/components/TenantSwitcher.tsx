@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronDown, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, ApiResponse } from '@/lib/apiFetch';
 
 export type Tenant = {
   id: string; // HubSpot 账户ID（租户ID）
@@ -16,12 +16,6 @@ interface TenantSwitcherProps {
   onTenantChange?: (tenantId: string) => void;
   placeholder?: string;
   disabled?: boolean;
-}
-
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  message?: string;
 }
 
 // 真实接口请求：获取用户关联的所有 HubSpot 账户（租户）
@@ -61,7 +55,6 @@ export default function TenantSwitcher({
     if (disabled) return;
     setIsLoading(true);
     setError(null);
-
     try {
       const res = await fetchTenantList();
       if (res.success && res.data) {

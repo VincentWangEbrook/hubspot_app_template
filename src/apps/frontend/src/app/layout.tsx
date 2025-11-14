@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { UserProvider } from '@/context/UserContext';

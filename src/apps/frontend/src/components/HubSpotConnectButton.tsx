@@ -25,7 +25,7 @@ const sizeClasses = {
 const validateEnv = () => {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
   if (!backendUrl) {
-    throw new Error('❌ 环境变量 NEXT_PUBLIC_BACKEND_URL 未配置，请检查 .env 文件');
+    throw new Error('环境变量 NEXT_PUBLIC_BACKEND_URL 未配置，请检查 .env 文件');
   }
   return backendUrl;
 };
@@ -59,7 +59,7 @@ export default function HubspotConnectButton({
 
     try {
       const state = generateState();
-      const url = new URL('auth/hubspot/url', backendUrl);
+      const url = new URL('/auth/hubspot/url', backendUrl);
       url.searchParams.append('state', state);
 
       // 优化 axios 请求配置（超时控制、响应类型限制）
@@ -86,7 +86,7 @@ export default function HubspotConnectButton({
       onError?.(err);
       // 显示临时错误提示（用户可看到）
       setTempError(err.message);
-      console.error('🔴 获取 HubSpot 授权 URL 失败：', err);
+      console.error('获取 HubSpot 授权 URL 失败：', err);
       return null;
     }
   }, [backendUrl, generateState, tempError, onError]);
@@ -125,7 +125,7 @@ export default function HubspotConnectButton({
       
       onError?.(err);
       setTempError(err.message);
-      console.error('🔴 跳转 HubSpot 授权失败：', err);
+      console.error('跳转 HubSpot 授权失败：', err);
     } finally {
       setIsLoading(false);
     }

@@ -19,7 +19,7 @@ export default function ConnectHubspotPage() {
       }
   
       // 使用 URL 构造函数拼接 URL（自动处理特殊字符编码）
-      const url = new URL('auth/hubspot/url', backendUrl);
+      const url = new URL('/auth/hubspot/url', backendUrl);
       url.searchParams.append('state', state); // 自动编码 state 中的特殊字符
 
       const res = await axios.get<{ url: string }>(url.toString());

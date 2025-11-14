@@ -1,26 +1,12 @@
 'use client';
+
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/context/UserContext';
 import { UserInfo } from '@/types';
-import { apiFetch } from '../../lib/api';
+import { apiFetch } from '@/lib/apiFetch';
 import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
-
-// 登录接口响应类型（与接口返回格式严格对齐）
-interface LoginResponseData {
-  success: boolean;
-  message?: string;
-  data?: {
-    token: string;
-    user?: {
-      id: string;
-      email: string;
-      username: string;
-      role?: string;
-      avatar?: string;
-    };
-  };
-}
+import { log } from 'console';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -32,21 +18,23 @@ export default function LoginPage() {
   const [passwordFocused, setPasswordFocused] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/dashboard';
   const { login } = useUser();
 
   // 页面加载时：检查是否已登录，若已登录直接跳转到仪表盘（优化：添加加载状态避免闪烁）
-  useEffect(() => {
-    const checkLoginStatus = () => {
-      const storedToken = localStorage.getItem('jwt');
-      const storedUser = localStorage.getItem('user');
-      if (storedToken && storedUser) {
-        // 延迟跳转，避免页面闪烁
-        setTimeout(() => router.push('/dashboard'), 100);
-      }
-    };
+  // useEffect(() => {
+  //   const checkLoginStatus = () => {
+  //     const storedToken = localStorage.getItem('jwt');
+  //     const storedUser = localStorage.getItem('user');
+  //     if (storedToken && storedUser) {
+  //       // 延迟跳转，避免页面闪烁
+  //       setTimeout(() => router.push('/dashboard'), 100);
+  //     }
+  //   };
 
-    checkLoginStatus();
-  }, [router]);
+  //   checkLoginStatus();
+  // }, [router]);
 
   // 邮箱验证（增强：支持中文邮箱前缀）
   const validateEmail = (email: string) => {
@@ -86,36 +74,15 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       // 调用登录接口（优化：添加请求超时处理）
-      const res = await Promise.race([
-        apiFetch<LoginResponseData>('user/login', {
-          method: 'POST',
-          data: { email: email.trim(), password },
-        }),
-        // 5秒超时处理
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('请求超时，请检查网络连接')), 5000)
-        ),
-      ]) as { success: boolean; message?: string; data?: LoginResponseData['data'] };
+      const isSuccess = await login({ email: email.trim(), password });
 
-      console.log(res)
       // 严格判断接口返回数据
-      if (res.success && res.data?.token && res.data?.user) {
-        // 组装符合 UserInfo 类型的用户数据（确保无 undefined 字段）
-        const userData: UserInfo = {
-          id: res.data.user.id || `user_${Date.now()}`, // 极端情况兜底
-          username: res.data.user.username || res.data.user.email.split('@')[0], // 用邮箱前缀兜底
-          email: res.data.user.email || '',
-          role: res.data.user.role || '普通用户',
-          avatar: res.data.user.avatar || '',
-        };
-
-        // 调用全局登录方法
-        login(userData, res.data.token);
-
+      if (isSuccess) {
+        //  router.push(redirectTo); // 登录后跳回原页面
         // 延迟跳转，确保 Context 状态同步完成
         setTimeout(() => router.push('/dashboard'), 150);
       } else {
-        setError(res.message || '登录失败，请检查邮箱和密码是否正确');
+        setError('登录失败，请检查邮箱和密码是否正确');
       }
     } catch (err: any) {
       console.error('登录异常:', err);
@@ -286,14 +253,13 @@ export default function LoginPage() {
             {/* 注册入口（优化：添加新窗口打开选项） */}
             <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2">
               还没有账号?{' '}
-              <a 
-                href="/register" 
+              <button 
+                type="button" 
+                onClick={() => router.push('/register')}
                 className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-                target="_blank"
-                rel="noopener noreferrer"
               >
                 立即注册
-              </a>
+              </button>
             </div>
           </form>
         </div>

@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserService } from './user.service';
-import { User } from './entities/user.entity';
+import { UserEntity } from './entities/user.entity';
 import { UserController } from './user.controller';
-import { SharedModule } from '@/shared/shared.module';
+import { SharedModule } from '../../shared/shared.module';
+import { RateLimiterModule } from 'nestjs-rate-limiter';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
-    SharedModule
+    TypeOrmModule.forFeature([UserEntity]),
+    SharedModule,
+    RateLimiterModule
   ],
   controllers: [UserController],
   providers: [UserService],

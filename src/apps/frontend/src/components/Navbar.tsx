@@ -2,85 +2,50 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { User, LogIn, LogOut, Menu, X, ChevronDown, Loader2 } from 'lucide-react';
+import { User, LogIn, LogOut, Menu, X, ChevronDown } from 'lucide-react';
 import TenantSwitcher from './TenantSwitcher';
 import HubspotConnectButton from './HubSpotConnectButton';
 import { UserInfo } from '@/types';
 import { useUser } from '@/context/UserContext';
+import { apiFetch } from '@/lib/apiFetch';
 
 // 类型扩展：添加初始化状态
-type UserState = UserInfo | null | 'initializing';
+type UserState = UserInfo | null;
 
 interface NavbarProps {
   className?: string;
-  // 服务端预传的用户状态（Next.js 13+ App Router 支持）
-  serverUser?: UserInfo | null;
   userRole?: 'admin' | 'user';
-  onLogin?: () => void;
-  onLogout?: () => void;
 }
 
 export default function Navbar({
   className = '',
-  serverUser = null,
-  onLogin: propsOnLogin,
-  onLogout: propsOnLogout,
   userRole = 'user',
 }: NavbarProps) {
-  const { user: contextUser, logout: contextLogout } = useUser();
+  const { user: contextUser, logout} = useUser();
   const router = useRouter();
   const navbarRef = useRef<HTMLDivElement>(null);
 
-  // 关键优化1：三级状态管理（initializing -> 已登录/未登录）
-  const [user, setUser] = useState<UserState>('initializing');
-  const logout = contextLogout ?? propsOnLogout;
+  const [user, setUser] = useState<UserState>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  // 创建菜单 DOM 引用，用于判断点击是否在菜单内部
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // 初始化加载状态
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // 关键优化2：优先使用服务端预传状态 -> Context -> localStorage
   useEffect(() => {
     const initUserState = async () => {
-      // 1. 优先使用服务端预传状态（无延迟）
-      // if (serverUser !== 'initializing') {
-      //   setUser(serverUser);
-      //   if (serverUser) {
-      //     localStorage.setItem('user', JSON.stringify(serverUser));
-      //   } else {
-      //     localStorage.removeItem('user');
-      //   }
-      //   return;
-      // }
-
-      // 2. 其次使用 Context 状态
       if (contextUser) {
         setUser(contextUser);
-        localStorage.setItem('user', JSON.stringify(contextUser));
-        return;
+      } else {
+        setUser(null);
       }
-
-      // 3. 最后从 localStorage 兜底读取
-      if (typeof window !== 'undefined') {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          try {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
-          } catch (error) {
-            localStorage.removeItem('user');
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
-      }
+      setIsLoading(false);
     };
 
     initUserState();
-  }, [contextUser, serverUser]);
+  }, [contextUser]);
 
-  // 关键优化3：监听窗口大小变化，固化 Navbar 高度（避免布局位移）
+  // 监听窗口大小变化，固化 Navbar 高度（避免布局位移）
   useEffect(() => {
     if (navbarRef.current) {
       // 固化 Navbar 高度，防止加载过程中高度变化
@@ -118,20 +83,29 @@ export default function Navbar({
 
   // 处理登录
   const handleLogin = () => {
-    propsOnLogin ? propsOnLogin() : router.push('/login');
+    router.push('/login');
     setIsMobileMenuOpen(false);
   };
 
-  // 处理退出登录（彻底清除状态）
-  const handleLogout = () => {
-    logout?.();
-    // 清除所有相关缓存
-    localStorage.removeItem('activeTenantId');
-    localStorage.removeItem('user');
-    localStorage.removeItem('authToken');
-    setUser(null);
-    setIsUserMenuOpen(false);
-    router.push('/login');
+  // 处理退出登录
+  const handleLogout = async () => {
+    setIsLoggingOut(true); // 开启加载状态，禁用按钮防止重复点击
+    try {
+      // 调用退出登录接口（优化：使用正确的请求方法，空数据可省略或传空对象）
+      await logout();
+
+      setUser(null);
+      // 跳转到登录页，清空路由历史（避免回退）
+      router.push('/login');
+      router.refresh(); // 刷新页面，确保状态同步
+    } catch (err) {
+      console.error('退出登录失败：', (err as Error).message);
+      // 错误处理：提示用户重试（可添加 Toast 组件）
+      alert('退出登录失败，请重试');
+    } finally {
+      setIsLoggingOut(false); // 关闭加载状态
+      setIsUserMenuOpen(false); // 关闭用户菜单
+    }
   };
 
   // 租户切换回调
@@ -169,9 +143,6 @@ export default function Navbar({
         return null;
     }
   };
-
-  // 判断是否加载中
-  const isLoading = user === 'initializing';
 
   return (
     <nav
@@ -218,16 +189,7 @@ export default function Navbar({
                     className="flex items-center cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors"
                     aria-expanded={isUserMenuOpen}
                   >
-                    {user.avatar ? (
-                      <img
-                        className="h-8 w-8 rounded-full object-cover border border-gray-200"
-                        src={user.avatar}
-                        alt={user.username}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <User size={20} className="text-gray-600" />
-                    )}
+                    <User size={20} className="text-gray-600" />
                     <span
                       className="ml-2 text-sm font-medium text-gray-700 hidden md:inline-block w-24 truncate text-ellipsis whitespace-nowrap"
                       title={user.username}
@@ -259,6 +221,7 @@ export default function Navbar({
                       <button
                         className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors"
                         onClick={handleLogout}
+                        disabled={isLoggingOut}
                       >
                         <LogOut size={14} className="inline mr-1" /> Sign Out
                       </button>
@@ -338,11 +301,7 @@ export default function Navbar({
             <div className="pt-4 pb-3 border-t border-gray-200">
               <div className="flex items-center px-4">
                 <div className="shrink-0">
-                  {user.avatar ? (
-                    <img className="h-10 w-10 rounded-full" src={user.avatar} alt={user.username} loading="lazy" />
-                  ) : (
                     <User size={24} className="text-gray-600" />
-                  )}
                 </div>
                 <div className="ml-3">
                   <div className="text-base font-medium text-gray-800">{user.username}</div>
@@ -350,6 +309,7 @@ export default function Navbar({
                 </div>
                 <button
                   onClick={handleLogout}
+                  disabled={isLoggingOut}
                   className="ml-auto text-red-600 hover:text-red-700"
                 >
                   <LogOut size={20} />

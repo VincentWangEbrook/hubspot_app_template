@@ -1,5 +1,5 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn, Index, ManyToOne } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
+import { UserEntity } from '../../user/entities/user.entity';
 
 /**
  * Tenant 表（租户注册表，存放租户的 meta 信息与加密后的 token）
@@ -38,8 +38,8 @@ export class Tenant {
   @Column({ type: 'json', nullable: true })
   raw?: any;
 
-  @ManyToOne(() => User, (user) => user.tenants)
-  user: Partial<User>;
+  @ManyToOne(() => UserEntity, (user) => user.tenants)
+  user: Partial<UserEntity>;
 
   @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
@@ -50,7 +50,7 @@ export class Tenant {
   constructor(
     id: string,
     name: string,
-    user: Partial<User>,
+    user: Partial<UserEntity>,
     hubId: string,
     hubspotAccessToken?: string,
     hubspotRefreshToken?: string,
