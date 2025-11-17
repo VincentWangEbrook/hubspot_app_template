@@ -1,5 +1,5 @@
 {
-  "name": "hubspot-frontend",
+  "name": "web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,6 +10,7 @@
     "start:prod": "next start"
   },
   "dependencies": {
+    "shared": "workspace:*",
     "autoprefixer": "^10.4.21",
     "axios": "^1.4.0",
     "lucide-react": "^0.548.0",

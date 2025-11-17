@@ -14,11 +14,14 @@ Features added in v2:
 2. Install deps:
    pnpm install
 
-3. Start backend (from repo root):
-   pnpm --filter hubspot-backend dev
+3. Start backend:
+   pnpm --filter api dev
 
 4. Start frontend:
-   pnpm --filter hubspot-frontend dev
+   pnpm --filter web dev
+
+5. Start shared:
+   pnpm --filter shared dev
 
 ## Security notes
 - Tokens are stored encrypted in DB (Tenant.hubspotAccessToken / hubspotRefreshToken).

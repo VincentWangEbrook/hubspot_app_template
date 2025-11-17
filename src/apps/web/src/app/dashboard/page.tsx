@@ -10,7 +10,6 @@ import {
   Users, FileText, DollarSign, Activity, AlertCircle,
   CheckCircle, RefreshCw, Menu, X
 } from 'lucide-react';
-import { UserInfo } from '@/types';
 
 // ========================= 类型定义 =========================
 interface StatCardData {
