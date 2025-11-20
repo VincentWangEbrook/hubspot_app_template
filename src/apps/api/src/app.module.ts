@@ -6,15 +6,17 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import * as path from 'path';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { TenantModule } from './modules/tenant/tenant.module';
+import { TenantModule } from './modules/tenants/tenant.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
-import { HubSpotModule } from './modules/hubspot/hubspot.module';
+import { HubspotModule } from './modules/hubspot/hubspot.module';
+import { LineModule } from './modules/line/line.module';
+import { LineSyncModule } from './modules/line-sync/line-sync.module';
 import { UserModule } from './modules/user/user.module';
 import { RateLimiterModule } from 'nestjs-rate-limiter';
 import { rateLimiterOptions } from './rate-limiter.config';
 import { SessionExpireMiddleware } from './middlewares/session-expire.middleware';
+import { PrismaModule } from './modules/prisma/prisma.module';
 
 @Module({
   imports: [
@@ -27,17 +29,13 @@ import { SessionExpireMiddleware } from './middlewares/session-expire.middleware
       isGlobal: true,
       cache: true, // 缓存配置（提升性能）
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      url: process.env.DATABASE_URL,
-      //entities: [Tenant, User],
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true, // dev only, use migrations in prod
-    }),
+    PrismaModule,
     TenantModule,
     AuthModule,
     SubscriptionModule,
-    HubSpotModule,
+    HubspotModule,
+    LineModule,
+    LineSyncModule,
     UserModule,
     RateLimiterModule.register(rateLimiterOptions),
   ]

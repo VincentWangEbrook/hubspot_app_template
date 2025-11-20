@@ -1,14 +1,24 @@
 import { Module } from '@nestjs/common';
-import { HubSpotService } from './hubspot.service';
-import { HubSpotController } from './hubspot.controller';
-import { TenantModule } from '../tenant/tenant.module';
+import { HubspotController } from './controllers/hubspot.controller';
+import { HubspotWebhookController } from './controllers/hubspot-webhook.controller';
+import { MultiChannelService } from './services/multi-channel.service';
+import { HubspotClientFactory } from './services/hubspot-client.factory';
+import { TenantModule } from '../tenants/tenant.module';
 import { JwtService } from '@nestjs/jwt';
 import { SharedModule } from '../../shared/shared.module';
+import { BullModule } from '@nestjs/bull';
+import { HubspotService } from './services/hubspot.service';
 
 @Module({
-  imports: [TenantModule, SharedModule],
-  controllers: [HubSpotController],
-  providers: [HubSpotService, JwtService],
-  exports: [HubSpotService],
+  imports: [
+    TenantModule, 
+    SharedModule, 
+    BullModule.registerQueue({
+      name: 'line-sync',
+    }),
+  ],
+  controllers: [HubspotController, HubspotWebhookController],
+  providers: [JwtService, MultiChannelService, HubspotClientFactory, HubspotService],
+  exports: [MultiChannelService, HubspotClientFactory, HubspotService],
 })
-export class HubSpotModule {}
+export class HubspotModule {}

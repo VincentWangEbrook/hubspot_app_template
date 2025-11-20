@@ -1,12 +1,9 @@
 'use client';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { UserProvider, useUser } from '@/context/UserContext';
 import Toolbar from '../components/Toolbar';
 import Navbar from '@/components/Navbar';
 import { useState } from 'react';
-
-const inter = Inter({ subsets: ['latin'] });
 
 // 布局包装器（用于获取用户状态）
 const LayoutContent = ({ children }: { children: React.ReactNode }) => {
@@ -36,7 +33,7 @@ const LayoutContent = ({ children }: { children: React.ReactNode }) => {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body className={`${inter.className} relative`}>
+      <body className={`relative`}>
         <UserProvider>
           <Toolbar />
           {/* 渲染布局内容（包含侧边栏和主内容区） */}

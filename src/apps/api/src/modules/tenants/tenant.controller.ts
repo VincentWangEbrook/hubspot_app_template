@@ -1,6 +1,6 @@
 import { Controller, Get, Req, Res, Post, Body, ForbiddenException, Param } from '@nestjs/common';
 import { FastifyRequest as Request } from 'fastify';
-import { TenantService } from './tenant.service';
+import { TenantService } from './services/tenant.service';
 import { JwtService } from '@nestjs/jwt';
 import { TenantMemberRole } from './entities/tenant-member.entity';
 import { FastifyRequest, FastifyReply } from 'fastify';
@@ -90,6 +90,20 @@ export class TenantController {
     if (!t || t.createdBy !== requesterId) throw new ForbiddenException('Only owner can manage members');
     const m = await this.tenants.updateMemberRole(body.tenantId, body.userId, body.role);
     return { success: true, data: m };
+  }
+  @Post('verify-schema')
+  async verifySchema(@Req() req: Request, @Res() res: FastifyReply) {
+    // This is a dev-only endpoint for verification
+    const tenantId = crypto.randomUUID();
+    try {
+      await this.tenants.upsertTenant({ id: tenantId }, {
+        name: 'Verification Tenant ' + tenantId.slice(0, 8),
+        hubId: 'verify-' + Date.now(),
+      });
+      return res.send({ success: true, message: `Tenant ${tenantId} created and schema initialized.` });
+    } catch (e) {
+      return res.status(500).send({ success: false, message: e.message, stack: e.stack });
+    }
   }
 }
 

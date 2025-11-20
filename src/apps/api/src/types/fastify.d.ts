@@ -12,7 +12,7 @@ declare module 'fastify' {
   interface Session {
     user: {
       id: string;
-      username?: string;
+      username: string;
       email: string;
       lastActiveTime: number;
     };

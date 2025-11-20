@@ -3,7 +3,7 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { TenantModule } from '../tenant/tenant.module';
+import { TenantModule } from '../tenants/tenant.module';
 import { JwtService } from '@nestjs/jwt';
 import { Client } from '@hubspot/api-client';
 import { SharedModule } from '../../shared/shared.module';

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
   throw new Error('NEXT_PUBLIC_BACKEND_URL 环境变量未配置');
 }
-console.log(process.env.NEXT_PUBLIC_BACKEND_URL)
+
 // 配置常量（集中管理，便于维护）
 const CONFIG = {
   PROTECTED_ROUTES: ['/dashboard', '/admin', '/settings'], // 需要登录的路由前缀
@@ -11,7 +11,7 @@ const CONFIG = {
   API_AUTH_CHECK: new URL('auth/me', process.env.NEXT_PUBLIC_BACKEND_URL).toString(),
   CACHE_TTL: 30, // 鉴权结果缓存时间（秒），减少重复请求
 };
-console.log(CONFIG.API_AUTH_CHECK)
+
 export async function proxy(req: NextRequest) {
   const { pathname, origin } = req.nextUrl;
   // 公共路由直接放行（跳过鉴权，提升性能）
@@ -68,7 +68,6 @@ export async function proxy(req: NextRequest) {
 // 辅助函数：生成登录重定向 URL（复用逻辑，减少冗余）
 function redirectToLogin(originalPath: string, origin: string) {
   const loginUrl = new URL(CONFIG.LOGIN_PATH, origin);
-  console.log(loginUrl)
   // 编码原路径（避免特殊字符导致的跳转异常）
   loginUrl.searchParams.set('redirect', encodeURIComponent(originalPath));
   return NextResponse.redirect(loginUrl);

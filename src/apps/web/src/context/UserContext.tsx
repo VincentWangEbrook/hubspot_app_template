@@ -51,7 +51,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       credentials: 'include'
     });
 
-    console.log(response);
     if (response.success && response.data?.user) {
       setUser(response.data.user);
       return true;

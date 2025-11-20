@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Body, Req, Query, UseGuards, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { TenantService } from '../tenant/tenant.service';
+import { TenantService } from '../tenants/services/tenant.service';
 import { FastifyRequest as Request } from 'fastify';
-import { TenantDbService } from '../tenant/tenant-db.service';
+import { TenantDbService } from '../tenants/services/tenant-db.service';
 
 @Controller('api/auth')
 export class AuthController {

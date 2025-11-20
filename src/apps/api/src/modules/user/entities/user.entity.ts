@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,OneToMany } from 'typeorm';
-import { Tenant } from '../../tenant/entities/tenant.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity({ name: 'users' })
 export class UserEntity {
@@ -13,13 +13,13 @@ export class UserEntity {
   password: string;
 
   @Column({ nullable: true })
-  username?: string;
+  username: string;
 
   @Column({ type: 'varchar', default: 'user' })
   role: 'admin' | 'user';
 
   @CreateDateColumn({ name: 'created_at' })
-  created_at: Date;
+  createdAt: Date;
 
   @OneToMany(() => Tenant, (tenant) => tenant.user)
   tenants?: Tenant[];
@@ -28,13 +28,13 @@ export class UserEntity {
     id: string,
     email: string,
     password: string,
-    username?: string
+    username: string
   ) {
     this.id = id;
     this.email = email;
     this.password = password;
     this.username = username;
-    this.created_at = new Date();
+    this.createdAt = new Date();
     this.role = 'user';
   }
 }

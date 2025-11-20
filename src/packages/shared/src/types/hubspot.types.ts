@@ -3,12 +3,7 @@
  * Copyright © 2025 eBrook Group (https://www.ebrook.com.tw)
  */
 
-/**
- * Developed by eBrook Group.
- * Copyright © 2025 eBrook Group (https://www.ebrook.com.tw)
- */
-
-export interface HubSpotContact {
+export interface HubspotContact {
   id: string;
   properties: {
     email?: string;

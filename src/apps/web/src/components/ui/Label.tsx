@@ -1,23 +1,9 @@
-import React from 'react';
+import React from "react";
 
-interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
-  children: React.ReactNode;
-  htmlFor?: string;
-}
+interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
 
-export function Label({
-  children,
-  htmlFor,
-  className,
-  ...props
-}: LabelProps) {
-  return (
-    <label
-      htmlFor={htmlFor}
-      className={`text-sm font-medium text-gray-700 ${className}`}
-      {...props}
-    >
-      {children}
-    </label>
-  );
-}
+export const Label: React.FC<LabelProps> = ({ children, className = "", ...props }) => (
+  <label className={`block text-gray-700 font-medium ${className}`} {...props}>
+    {children}
+  </label>
+);

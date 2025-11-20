@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { ConfigService } from '@nestjs/config';
-import { TenantService } from '../tenant/tenant.service';
+import { TenantService } from '../tenants/services/tenant.service';
 
 @Injectable()
 export class SubscriptionService {

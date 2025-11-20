@@ -1,29 +1,12 @@
-import React from 'react';
+import React from "react";
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  className?: string;
-  disabled?: boolean;
-  type?: string;
-}
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 
-export function Input({
-  className,
-  disabled = false,
-  type = 'text',
-  ...props
-}: InputProps) {
-  return (
-    <input
-      type={type}
-      disabled={disabled}
-      className={`
-        w-full px-3 py-2 border border-gray-300 rounded-md
-        text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500
-        focus:border-transparent transition-colors
-        ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'bg-white hover:border-gray-400'}
-        ${className}
-      `}
-      {...props}
-    />
-  );
-}
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className = "", ...props }, ref) => (
+  <input
+    ref={ref}
+    className={`block w-full rounded-radius-md border border-gray-300 focus:ring-blue-600 focus:border-blue-600 px-3 py-2 text-base text-gray-900 placeholder:text-gray-500 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+    {...props}
+  />
+));
+Input.displayName = "Input";

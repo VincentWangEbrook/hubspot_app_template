@@ -23,3 +23,6 @@ logs
 !.vscode/settings.json
 !.vscode/extensions.json
 .DS_Store
+/generated/prisma
+
+/generated/prisma

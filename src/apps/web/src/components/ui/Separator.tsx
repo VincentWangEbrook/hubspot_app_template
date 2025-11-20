@@ -1,23 +1,7 @@
-import React from 'react';
+import React from "react";
 
-interface SeparatorProps extends React.HTMLAttributes<HTMLDivElement> {
-  orientation?: 'horizontal' | 'vertical';
-}
+interface SeparatorProps extends React.HTMLAttributes<HTMLHRElement> {}
 
-export function Separator({
-  orientation = 'horizontal',
-  className,
-  ...props
-}: SeparatorProps) {
-  const baseStyles = 'bg-gray-200';
-  const orientationStyles = orientation === 'horizontal'
-    ? 'h-px w-full'
-    : 'w-px h-full';
-
-  return (
-    <div
-      className={`${baseStyles} ${orientationStyles} ${className}`}
-      {...props}
-    />
-  );
-}
+export const Separator: React.FC<SeparatorProps> = ({ className = "", ...props }) => (
+  <hr className={`border-gray-100 my-4 ${className}`} {...props} />
+);
