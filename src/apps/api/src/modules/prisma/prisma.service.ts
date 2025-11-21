@@ -30,4 +30,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       await this.$executeRawUnsafe(`SET search_path TO public;`);
     }
   }
+
+  /**
+   * 通用方法：根据 tenantId 切换到租户 schema 并执行回调
+   */
+  async withTenant<T>(tenantId: string, callback: (prisma: PrismaClient) => Promise<T>): Promise<T> {
+    // 1. 查租户元数据
+    const tenant = await this.tenant.findUnique({
+      where: { id: tenantId },
+      select: { schemaName: true },
+    });
+
+    if (!tenant) throw new Error(`租户 ${tenantId} 不存在`);
+
+    // 2. 切换 schema 并执行回调
+    return this.useTenantSchema(tenant.schemaName, callback);
+  }
 }

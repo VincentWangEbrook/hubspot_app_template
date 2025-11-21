@@ -46,22 +46,7 @@ model Tenant {
   userId String? // TypeORM default for @ManyToOne
   user   User?   @relation("UserTenants", fields: [userId], references: [id])
 
-  members TenantMember[]
-
   @@map("tenants")
-}
-
-model TenantMember {
-  id       String @id @default(uuid())
-  tenantId String @db.Uuid
-  userId   String @db.Uuid
-  role     String @default("member") // 'owner' | 'admin' | 'member'
-
-  // Relations
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, userId])
-  @@map("tenant_members")
 }
 
 // --- Tenant Schema Models (Dynamic Context) ---

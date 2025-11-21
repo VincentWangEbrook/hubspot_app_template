@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bullmq';
 import { MultiChannelService } from './multi-channel.service';
-import { Channel } from '../entities/channel.entity';
+import { Channel } from '@prisma/client';
 
 @Injectable()
 export class MessageListenerService {
@@ -21,17 +21,19 @@ export class MessageListenerService {
     content: string,
   ) {
     // 保存消息到 DB
-    const channel: Channel = await this.multiChannelService.saveUserMessage(
+    const channel: Channel = await this.multiChannelService.saveIncomingMessage(
       tenantId,
-      channelType,
-      externalUserId,
-      content,
+      {
+        channelType,
+        externalUserId,
+        content,
+      }
     );
 
     // 异步提交队列
     await this.hubspotQueue.add('sync', {
       tenantId,
-      channelId: channel.id,   // 传 id，Processor 内获取实体
+      channelId: channel.id,
       content,
     });
   }

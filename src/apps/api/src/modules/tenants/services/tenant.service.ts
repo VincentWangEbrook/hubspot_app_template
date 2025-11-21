@@ -2,7 +2,6 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EncryptionService } from '../../../common/security/encryption.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SchemaManagerService } from './schema-manager.service';
-import { TenantMemberRole } from '../entities/tenant-member.entity'; // Keep type definition for now or move it
 
 @Injectable()
 export class TenantService {
@@ -126,55 +125,6 @@ export class TenantService {
     const tenantIds = Array.from(new Set([...own.map(t => t.id), ...memberships.map(m => m.tenantId)]));
     if (tenantIds.length === 0) return [];
     return this.prisma.tenant.findMany({ where: { id: { in: tenantIds } } });
-  }
-
-  async addMember(tenantId: string, userId: string, role: string = 'member') {
-    return this.prisma.tenantMember.upsert({
-      where: { tenantId_userId: { tenantId, userId } },
-      update: { role },
-      create: { tenantId, userId, role },
-    });
-  }
-
-  async removeMember(tenantId: string, userId: string) {
-    await this.prisma.tenantMember.delete({
-      where: { tenantId_userId: { tenantId, userId } },
-    });
-    return { success: true };
-  }
-
-  async isMemberOrOwner(tenantId: string, userId: string) {
-    const t = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!t) return false;
-    if (t.createdBy === userId) return true;
-    const m = await this.prisma.tenantMember.findUnique({ where: { tenantId_userId: { tenantId, userId } } });
-    return !!m;
-  }
-
-  async listMembers(tenantId: string) {
-    return this.prisma.tenantMember.findMany({ where: { tenantId } });
-  }
-
-  async addMemberByEmail(tenantId: string, email: string, role: string = 'member') {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user) throw new Error('用户不存在');
-    return this.addMember(tenantId, user.id, role);
-  }
-
-  async listMembersWithUserInfo(tenantId: string) {
-    const members = await this.prisma.tenantMember.findMany({ where: { tenantId } });
-    if (members.length === 0) return [];
-    const userIds = Array.from(new Set(members.map(m => m.userId)));
-    const users = await this.prisma.user.findMany({ where: { id: { in: userIds } } });
-    const map = new Map(users.map(u => [u.id, { id: u.id, email: u.email, username: u.username }]));
-    return members.map(m => ({ ...m, user: map.get(m.userId) }));
-  }
-
-  async updateMemberRole(tenantId: string, userId: string, role: string) {
-    return this.prisma.tenantMember.update({
-      where: { tenantId_userId: { tenantId, userId } },
-      data: { role },
-    });
   }
 
   async getHubspotAccessToken(tenantId: string): Promise<string> {

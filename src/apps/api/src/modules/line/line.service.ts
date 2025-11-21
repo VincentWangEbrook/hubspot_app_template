@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MultiChannelService } from '../hubspot/services/multi-channel.service';
 import { TenantDataSourceFactory } from '../hubspot/services/tenant-data-source.factory';
-import { Channel } from '../hubspot/entities/channel.entity';
 
 // NOTE: 你要实现真实的 Line Messaging API 发送逻辑（replace TODO）
 @Injectable()

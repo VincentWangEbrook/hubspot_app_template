@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, Repository, EntityManager } from 'typeorm';
-import { Channel } from '../entities/channel.entity';
-import { Message } from '../entities/message.entity';
-import { HubspotConversation } from '../entities/hubspot-conversation.entity';
+import { Channel, Message, HubspotConversation } from '@prisma/client';
 
 @Injectable()
 export class TenantDataSourceFactory {
