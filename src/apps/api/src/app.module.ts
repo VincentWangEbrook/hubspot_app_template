@@ -10,6 +10,7 @@ import { TenantModule } from './modules/tenants/tenant.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { HubspotModule } from './modules/hubspot/hubspot.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { LineModule } from './modules/line/line.module';
 import { LineSyncModule } from './modules/line-sync/line-sync.module';
 import { UserModule } from './modules/user/user.module';
@@ -33,6 +34,7 @@ import { PrismaModule } from './modules/prisma/prisma.module';
     TenantModule,
     AuthModule,
     SubscriptionModule,
+    ChatModule,
     HubspotModule,
     LineModule,
     LineSyncModule,

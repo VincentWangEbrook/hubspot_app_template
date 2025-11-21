@@ -24,7 +24,8 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  tenantsOwned Tenant[] @relation("UserTenants")
+  tenantsOwned      Tenant[]       @relation("UserTenants")
+  tenantMemberships TenantMember[]
 
   @@map("users")
 }
@@ -43,10 +44,27 @@ model Tenant {
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  userId String? // TypeORM default for @ManyToOne
-  user   User?   @relation("UserTenants", fields: [userId], references: [id])
+  userId  String?        // TypeORM default for @ManyToOne
+  user    User?          @relation("UserTenants", fields: [userId], references: [id])
+  members TenantMember[]
 
   @@map("tenants")
+}
+
+model TenantMember {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  role      String   @default("member") // 'owner' | 'admin' | 'member'
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@map("tenant_members")
 }
 
 // --- Tenant Schema Models (Dynamic Context) ---

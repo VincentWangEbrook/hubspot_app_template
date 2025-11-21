@@ -3,6 +3,8 @@ import { Client, MessageEvent, FollowEvent, TextMessage } from '@line/bot-sdk';
 import { LineConfigService } from './line-config.service';
 import { HubspotService } from '../../hubspot/services/hubspot.service';
 import { TenantPrismaService } from '../../prisma/tenant-prisma.service';
+import { ChatGateway } from '../../chat/chat.gateway';
+import { MultiChannelService } from '../../hubspot/services/multi-channel.service';
 
 @Injectable()
 export class LineService {
@@ -13,6 +15,8 @@ export class LineService {
     private lineConfigService: LineConfigService,
     private hubspotService: HubspotService,
     private tenantPrisma: TenantPrismaService,
+    private chatGateway: ChatGateway,
+    private multiChannelService: MultiChannelService,
   ) {
     this.client = new Client(this.lineConfigService.getClientConfig());
   }
@@ -64,7 +68,7 @@ export class LineService {
       'line_user_id',
       lineUserId,
     );
-    let contactId: string|null;
+    let contactId: string | null;
 
     if (existingContact) {
       await this.hubspotService.updateContact(tenantId, existingContact.id, hubspotContactProps);
@@ -72,6 +76,10 @@ export class LineService {
     } else {
       const newContact = await this.hubspotService.createContact(tenantId, hubspotContactProps);
       contactId = newContact.id;
+    }
+
+    if (!contactId) {
+      throw new Error(`Failed to create or find HubSpot contact for Line user ${lineUserId}`);
     }
 
     // 3. 创建对话通道
@@ -111,7 +119,7 @@ export class LineService {
       }
 
       // 2. 存储消息
-      await tx.message.create({
+      const message = await tx.message.create({
         data: {
           channelId: channel.id,
           tenantId,
@@ -120,12 +128,18 @@ export class LineService {
         },
       });
 
-      // 3. 转发消息到 HubSpot 对话
-      await this.hubspotService.createConversation(tenantId, {
-        contactId: channel.hubspotContactId,
-        message: messageText,
-        senderType: 'CONTACT',
+      // Emit WebSocket event
+      this.chatGateway.emitMessageToRoom(tenantId, {
+        event: 'message.created',
+        data: message,
       });
+      this.chatGateway.emitMessageToRoom(`channel_${channel.id}`, {
+        event: 'message.created',
+        data: message,
+      });
+
+      // 3. 转发消息到 HubSpot 对话
+      await this.multiChannelService.sendMessageToHubspot(tenantId, channel, messageText, 'CONTACT');
 
       // 4. 回复已读确认
       return this.client.replyMessage(event.replyToken, {
@@ -196,11 +210,7 @@ export class LineService {
         },
       });
 
-      await this.hubspotService.createConversation(tenantId, {
-        contactId: channel.hubspotContactId,
-        message: messageText,
-        senderType: 'USER',
-      });
+      await this.multiChannelService.sendMessageToHubspot(tenantId, channel, messageText, 'USER');
 
       return { success: true };
     });

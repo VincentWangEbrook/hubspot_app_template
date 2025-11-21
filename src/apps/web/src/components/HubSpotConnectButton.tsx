@@ -3,7 +3,11 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import { ExternalLink, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import axios from 'axios';
-import { useAuth } from './LogoutButton';
+import { UserInfo } from '@/types';
+import { useUser } from '@/context/UserContext';
+
+// 类型扩展：添加初始化状态
+type UserState = UserInfo | null;
 
 // 定义组件 Props 类型（更精确的类型约束）
 interface HubspotConnectButtonProps {
@@ -38,10 +42,24 @@ export default function HubspotConnectButton({
   onError,
 }: HubspotConnectButtonProps) {
   const router = useRouter();
-  const isLoggedIn = useAuth();
+  const { user: contextUser } = useUser();
+  const [user, setUser] = useState<UserState>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [authUrl, setAuthUrl] = useState<string>('');
   const [tempError, setTempError] = useState<string | null>(null); // 临时错误提示（自动消失）
+
+    useEffect(() => {
+    const initUserState = async () => {
+      if (contextUser) {
+        setUser(contextUser);
+      } else {
+        setUser(null);
+      }
+      setIsLoading(false);
+    };
+
+    initUserState();
+  }, [contextUser]);
 
   // 环境变量缓存（避免重复校验）
   const backendUrl = validateEnv();
@@ -59,7 +77,7 @@ export default function HubspotConnectButton({
 
     try {
       const state = generateState();
-      const url = new URL('/auth/hubspot/url', backendUrl);
+      const url = new URL('auth/hubspot/url', backendUrl);
       url.searchParams.append('state', state);
 
       // 优化 axios 请求配置（超时控制、响应类型限制）
@@ -93,10 +111,10 @@ export default function HubspotConnectButton({
 
   // 初始化获取授权 URL（仅在登录状态下执行）
   useEffect(() => {
-    if (isLoggedIn) {
+    if (user) {
       fetchAuthUrl();
     }
-  }, [isLoggedIn, fetchAuthUrl]);
+  }, [user, fetchAuthUrl]);
 
   // 临时错误自动消失（优化用户体验，避免错误常驻）
   useEffect(() => {
@@ -132,7 +150,7 @@ export default function HubspotConnectButton({
   };
 
   // 未登录时不渲染组件
-  if (!isLoggedIn) return null;
+  if (!user) return null;
 
   // 组合最终样式（优先级：用户自定义 > 尺寸样式 > 基础样式）
   const combinedClasses = [

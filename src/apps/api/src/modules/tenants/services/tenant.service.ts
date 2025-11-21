@@ -139,4 +139,168 @@ export class TenantService {
 
     return this.encryption.decrypt(tenant.hubspotAccessToken);
   }
+
+  // ===== TenantMember Management =====
+
+  async getTenantMembers(tenantId: string) {
+    const members = await this.prisma.tenantMember.findMany({
+      where: { tenantId },
+    });
+
+    // Sort by role: owner first, then admin, then member
+    const roleOrder = { owner: 0, admin: 1, member: 2 };
+    return members.sort((a, b) => {
+      const aOrder = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
+      const bOrder = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
+      return aOrder - bOrder;
+    });
+  }
+
+  async addMemberByEmail(
+    tenantId: string,
+    email: string,
+    role: 'admin' | 'member',
+    currentUserId: string
+  ) {
+    // Check if current user has permission (must be owner or admin)
+    await this.isMemberOrOwner(tenantId, currentUserId);
+
+    // Find user by email
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new Error(`用户 ${email} 不存在`);
+    }
+
+    // Check if already a member
+    const existing = await this.prisma.tenantMember.findUnique({
+      where: {
+        tenantId_userId: {
+          tenantId,
+          userId: user.id,
+        },
+      },
+    });
+
+    if (existing) {
+      throw new Error('该用户已经是成员');
+    }
+
+    // Add member
+    return this.prisma.tenantMember.create({
+      data: {
+        tenantId,
+        userId: user.id,
+        role,
+      },
+    });
+  }
+
+  async removeMember(tenantId: string, userIdToRemove: string, currentUserId: string) {
+    // Check if current user has permission
+    await this.isMemberOrOwner(tenantId, currentUserId);
+
+    // Get the member to remove
+    const memberToRemove = await this.prisma.tenantMember.findUnique({
+      where: {
+        tenantId_userId: {
+          tenantId,
+          userId: userIdToRemove,
+        },
+      },
+    });
+
+    if (!memberToRemove) {
+      throw new Error('成员不存在');
+    }
+
+    // Cannot remove owner
+    if (memberToRemove.role === 'owner') {
+      throw new Error('不能移除所有者');
+    }
+
+    // Admin cannot remove other admins (only owner can)
+    const currentMember = await this.prisma.tenantMember.findUnique({
+      where: {
+        tenantId_userId: {
+          tenantId,
+          userId: currentUserId,
+        },
+      },
+    });
+
+    if (currentMember?.role === 'admin' && memberToRemove.role === 'admin') {
+      throw new Error('管理员不能移除其他管理员');
+    }
+
+    // Remove the member
+    return this.prisma.tenantMember.delete({
+      where: {
+        tenantId_userId: {
+          tenantId,
+          userId: userIdToRemove,
+        },
+      },
+    });
+  }
+
+  async updateMemberRole(
+    tenantId: string,
+    userIdToUpdate: string,
+    newRole: 'admin' | 'member' | 'owner',
+    currentUserId: string
+  ) {
+    // Check if current user has permission (only owner can change roles)
+    await this.isMemberOrOwner(tenantId, currentUserId);
+
+    // Get the member to update
+    const memberToUpdate = await this.prisma.tenantMember.findUnique({
+      where: {
+        tenantId_userId: {
+          tenantId,
+          userId: userIdToUpdate,
+        },
+      },
+    });
+
+    if (!memberToUpdate) {
+      throw new Error('成员不存在');
+    }
+
+    // Cannot change owner role
+    if (memberToUpdate.role === 'owner') {
+      throw new Error('不能修改所有者的角色');
+    }
+
+    // Update role
+    return this.prisma.tenantMember.update({
+      where: {
+        tenantId_userId: {
+          tenantId,
+          userId: userIdToUpdate,
+        },
+      },
+      data: { role: newRole },
+    });
+  }
+
+  /**
+   * Public helper to check if a user is owner or admin of a tenant.
+   * Returns true if the user created the tenant or has role 'owner'/'admin'.
+   */
+  async isMemberOrOwner(tenantId: string, userId: string): Promise<boolean> {
+    // Check creator
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { createdBy: true },
+    });
+    if (tenant?.createdBy === userId) return true;
+
+    // Check member role
+    const member = await this.prisma.tenantMember.findUnique({
+      where: { tenantId_userId: { tenantId, userId } },
+      select: { role: true },
+    });
+    if (!member) return false;
+    return ['owner', 'admin'].includes(member.role);
+  }
 }

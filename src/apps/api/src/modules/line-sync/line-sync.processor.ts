@@ -2,10 +2,18 @@ import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bullmq';
 import { MultiChannelService } from '../hubspot/services/multi-channel.service';
 import { LineService } from '../line/services/line.service';
+import { TenantPrismaService } from '../prisma/tenant-prisma.service';
+import { Logger } from '@nestjs/common';
 
 @Processor('line-sync')
 export class LineSyncProcessor {
-  constructor(private readonly multi: MultiChannelService, private readonly lineService: LineService) {}
+  private readonly logger = new Logger(LineSyncProcessor.name);
+
+  constructor(
+    private readonly multi: MultiChannelService,
+    private readonly lineService: LineService,
+    private readonly tenantPrisma: TenantPrismaService,
+  ) {}
 
   @Process('hubspotToLine')
   async handle(job: Job) {
@@ -14,27 +22,29 @@ export class LineSyncProcessor {
     // 1) read hubspot message
     const hsMessage = await this.multi.getHubspotMessageById(tenantId, messageId);
     // 解析 body & sender
-    const body = hsMessage.properties?.hs_body ?? hsMessage.properties?.body ?? '';
-    const senderType = hsMessage.properties?.hs_sender_type ?? 'USER';
-    const hsSenderId = hsMessage.properties?.hs_sender_id;
+    const body = hsMessage.body ?? '';
+    const senderType = hsMessage.senderType ?? 'USER';
 
     // 3) 如果消息来自客服（USER），则需要发到 Line 用户
     if (senderType === 'USER' || senderType === 'AGENT') {
       const conversationId = job.data.conversationId;
       if (!conversationId) {
-        console.warn(`LineSyncProcessor: Tenant ${tenantId} Message ${messageId} missing conversationId`);
+        this.logger.warn(`LineSyncProcessor: Tenant ${tenantId} Message ${messageId} missing conversationId`);
         return;
       }
 
-      await this.multi.getTenantDataSourceFactory().runInTenantContext(tenantId, async ({ conversationRepo }) => {
+      await this.tenantPrisma.runInTenantContext(tenantId, async (tx) => {
         // 查找本地映射：HubSpot Conversation -> Channel
-        const mapping = await conversationRepo.findOne({ 
-          where: { conversationId }, 
-          relations: ['channel'] 
+        const mapping = await tx.hubspotConversation.findFirst({
+          where: { 
+            tenantId,
+            conversationId,
+          },
+          include: { channel: true }
         });
 
         if (!mapping || !mapping.channel) {
-          console.warn(`LineSyncProcessor: No channel mapping found for conversation ${conversationId}`);
+          this.logger.warn(`LineSyncProcessor: No channel mapping found for conversation ${conversationId}`);
           return;
         }
 

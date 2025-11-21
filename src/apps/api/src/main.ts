@@ -88,7 +88,7 @@ async function bootstrap() {
     field: 'rawBody',
     encoding: 'utf8',
     runFirst: true,
-    routes: ['/api/subscription/webhook'],
+    routes: ['/api/subscription/webhook', '/hubspot/webhook', '/api/hubspot/webhook'],
   });
 
   // 启动服务

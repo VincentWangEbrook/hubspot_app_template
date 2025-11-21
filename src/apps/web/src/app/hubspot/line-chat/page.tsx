@@ -6,15 +6,16 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Loader } from '@/components/ui/Loader';
-import { AlertCircle, Send, ArrowLeft, Check } from 'lucide-react';
+import { AlertCircle, Send, ArrowLeft, Check, WifiOff } from 'lucide-react';
+import { useSocket } from '@/context/SocketContext';
 
 // 消息类型定义（明确类型）
 interface LineMessage {
   id: number;
   content: string;
-  isLine: boolean;
+  isFromUser: boolean; // true = from Line user, false = from System/HubSpot
   createdAt: string;
-  tenantId: string;
+  channelId: number;
 }
 
 // 格式化日期时间
@@ -26,6 +27,7 @@ const formatMessageTime = (dateString: string) => {
 export default function LineChatPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { socket, isConnected } = useSocket();
   const tenantId = searchParams.get('tenantId');
   const channelId = searchParams.get('channelId');
   const [messages, setMessages] = useState<LineMessage[]>([]);
@@ -49,12 +51,10 @@ export default function LineChatPage() {
 
     try {
       setError(null);
-      const res = await apiFetch(`/line/messages?channelId=${channelId}`, {
-        headers: { 'X-Tenant-Id': tenantId },
-      });
+      const res = await apiFetch(`/chat/messages/${channelId}?tenantId=${tenantId}`);
 
-      if (res.success && Array.isArray(res.data)) {
-        setMessages(res.data as LineMessage[]); // 明确类型断言
+      if (Array.isArray(res)) {
+        setMessages(res as LineMessage[]);
       } else {
         setError('获取聊天记录失败');
       }
@@ -66,15 +66,39 @@ export default function LineChatPage() {
     }
   };
 
+  // 初始加载消息
   useEffect(() => {
     if (tenantId && channelId) {
       fetchMessageHistory();
-
-      // 轮询获取新消息（5秒一次）
-      const interval = setInterval(fetchMessageHistory, 5000);
-      return () => clearInterval(interval);
     }
   }, [tenantId, channelId]);
+
+  // WebSocket: Join channel room and listen for messages
+  useEffect(() => {
+    if (!socket || !channelId || !tenantId) return;
+
+    // Join tenant and channel rooms
+    socket.emit('join', tenantId);
+    socket.emit('join', `channel_${channelId}`);
+
+    const handleMessage = (event: any) => {
+      if (event.event === 'message.created') {
+        const newMsg = event.data;
+        // Only append if it belongs to current channel
+        if (newMsg.channelId === parseInt(channelId)) {
+          setMessages((prev) => [...prev, newMsg]);
+        }
+      }
+    };
+
+    socket.on('message', handleMessage);
+
+    return () => {
+      socket.emit('leave', tenantId);
+      socket.emit('leave', `channel_${channelId}`);
+      socket.off('message', handleMessage);
+    };
+  }, [socket, channelId, tenantId]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -88,24 +112,35 @@ export default function LineChatPage() {
 
     if (!trimmedValue || !tenantId || !channelId) return;
 
+    // Optimistic update
+    const tempId = Date.now();
+    const optimisticMsg: LineMessage = {
+      id: tempId,
+      content: trimmedValue,
+      isFromUser: false,
+      createdAt: new Date().toISOString(),
+      channelId: parseInt(channelId),
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setInputValue('');
+
     try {
       setIsSending(true);
-      await apiFetch(
-        '/line/reply',
-        { 
-            headers: { 'X-Tenant-Id': tenantId },
-            data: {
-                channelId: Number(channelId),
-                message: trimmedValue,
-            }
-        }
-      );
+      await apiFetch('/chat/messages', {
+        headers: { 'X-Tenant-Id': tenantId },
+        data: {
+          tenantId,
+          channelId: Number(channelId),
+          content: trimmedValue,
+        },
+      });
 
-      // 发送成功后清空输入框并刷新消息
-      setInputValue('');
-      await fetchMessageHistory();
+      // Real message will arrive via WebSocket, remove optimistic one
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
     } catch (err) {
       console.error('发送消息失败:', err);
+      // Remove optimistic message on error
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       alert('发送消息失败，请重试');
     } finally {
       setIsSending(false);
@@ -115,7 +150,7 @@ export default function LineChatPage() {
   if (loading) {
     return (
       <div className="container py-8 mx-auto">
-        <Card shadow="lg" padding="xl" className="max-w-2xl mx-auto">
+        <Card className="max-w-2xl mx-auto px-6 py-8 shadow-lg">
           <Loader size="lg" label="加载聊天记录中..." />
         </Card>
       </div>
@@ -125,7 +160,7 @@ export default function LineChatPage() {
   if (error) {
     return (
       <div className="container py-8 mx-auto">
-        <Card shadow="lg" padding="xl" className="max-w-2xl mx-auto">
+        <Card className="max-w-2xl mx-auto px-6 py-8 shadow-lg">
           <div className="flex items-start gap-4 text-red-500">
             <AlertCircle size={24} />
             <div className="flex-1">
@@ -152,7 +187,7 @@ export default function LineChatPage() {
 
   return (
     <div className="container py-8 mx-auto">
-      <Card shadow="lg" className="max-w-2xl mx-auto flex flex-col h-[85vh]">
+      <Card className="max-w-2xl mx-auto flex flex-col h-[85vh] shadow-lg">
         {/* 聊天头部 */}
         <div className="border-b border-gray-100 p-4 flex items-center justify-between">
           <Button
@@ -164,7 +199,17 @@ export default function LineChatPage() {
             <ArrowLeft size={20} />
           </Button>
           <h2 className="text-xl font-semibold flex-1 text-center">Line 聊天窗口</h2>
-          <div className="w-8"></div> {/* 占位，保持头部居中 */}
+          <div className="flex items-center gap-2">
+            {!isConnected && (
+              <div className="flex items-center gap-1 text-red-500 text-sm">
+                <WifiOff size={16} />
+                <span>未连接</span>
+              </div>
+            )}
+            {isConnected && (
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            )}
+          </div>
         </div>
 
         {/* 聊天内容区域 */}
@@ -191,17 +236,17 @@ export default function LineChatPage() {
             messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex ${msg.isLine ? 'justify-start' : 'justify-end'}`}
+                className={`flex ${msg.isFromUser ? 'justify-start' : 'justify-end'}`}
               >
-                <div className={`max-w-[75%] p-4 ${msg.isLine ? 'message-in' : 'message-out'}`}>
+                <div className={`max-w-[75%] p-4 ${msg.isFromUser ? 'message-in' : 'message-out'}`}>
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                   <div
                     className={`flex items-center mt-1 text-xs ${
-                      msg.isLine ? 'text-gray-400' : 'text-primary-200'
+                      msg.isFromUser ? 'text-gray-400' : 'text-primary-200'
                     }`}
                   >
                     {formatMessageTime(msg.createdAt)}
-                    {!msg.isLine && (
+                    {!msg.isFromUser && (
                       <Check size={12} className="ml-1" />
                     )}
                   </div>
@@ -220,20 +265,20 @@ export default function LineChatPage() {
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="输入消息..."
               className="flex-1"
-              disabled={isSending}
+              disabled={isSending || !isConnected}
             />
             <Button
               type="submit"
               variant="primary"
               size="lg"
               isLoading={isSending}
-              disabled={!inputValue.trim() || isSending}
+              disabled={!inputValue.trim() || isSending || !isConnected}
             >
               <Send size={18} />
             </Button>
           </form>
           <p className="text-xs text-gray-500 mt-2 text-center">
-            消息将实时同步到 Line 客户端
+            {isConnected ? '消息将实时同步到 Line 客户端' : '连接已断开，正在重连...'}
           </p>
         </div>
       </Card>

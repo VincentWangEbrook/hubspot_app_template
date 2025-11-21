@@ -142,10 +142,9 @@ export class MultiChannelService {
   
     return {
       id: msg.id,
-      body: msg.properties?.hs_body,
-      senderId: msg.properties?.hs_sender_id,
-      senderType: msg.properties?.hs_sender_type,
-      raw: msg
+      body: msg.properties?.hs_body ?? '',
+      senderId: msg.properties?.hs_sender_id ?? '',
+      senderType: msg.properties?.hs_sender_type ?? 'CONTACT',
     };
   }  
 

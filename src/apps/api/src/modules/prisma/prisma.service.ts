@@ -38,12 +38,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     // 1. 查租户元数据
     const tenant = await this.tenant.findUnique({
       where: { id: tenantId },
-      select: { schemaName: true },
+      select: { id: true },
     });
 
     if (!tenant) throw new Error(`租户 ${tenantId} 不存在`);
 
     // 2. 切换 schema 并执行回调
-    return this.useTenantSchema(tenant.schemaName, callback);
+    // Sanitize tenantId to prevent SQL injection (though uuid is safe, good practice)
+    const schemaName = `tenant_${tenantId.replace(/[^a-zA-Z0-9-]/g, '')}`;
+    return this.useTenantSchema(schemaName, callback);
   }
 }
