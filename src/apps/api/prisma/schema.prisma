@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -14,13 +8,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Data model
+// ----------------- Models -----------------
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
   username  String
-  role      String   @default("user") // 'admin' | 'user'
+  role      String   @default("user")
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
@@ -31,20 +26,19 @@ model User {
 }
 
 model Tenant {
-  id                  String    @id // uuid, provided manually
+  id                  String    @id
   name                String
   hubId               String?   @unique
   hubspotAccessToken  String?   @db.Text
   hubspotRefreshToken String?   @db.Text
   hubspotExpiresAt    DateTime?
   hubspotScope        String?   @db.Text
-  createdBy           String?   // Just a string in TypeORM, separate from user relation
+  createdBy           String?
   raw                 Json?
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  // Relations
-  userId  String?        // TypeORM default for @ManyToOne
+  userId  String?
   user    User?          @relation("UserTenants", fields: [userId], references: [id])
   members TenantMember[]
 
@@ -53,13 +47,12 @@ model Tenant {
 
 model TenantMember {
   id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  userId    String   @map("user_id")
-  role      String   @default("member") // 'owner' | 'admin' | 'member'
+  tenantId  String
+  userId    String
+  role      String   @default("member")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Relations
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -67,20 +60,15 @@ model TenantMember {
   @@map("tenant_members")
 }
 
-// --- Tenant Schema Models (Dynamic Context) ---
-// These tables exist in 'tenant_UUID' schemas, but we define them here for client generation.
-// At runtime, we switch search_path to access them.
-
 model Channel {
   id               Int      @id @default(autoincrement())
   tenantId         String
-  channelType      String   // 'LINE' | 'WECHAT' | 'OTHER'
+  channelType      String
   externalUserId   String
   hubspotContactId String
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  // Relations
   messages             Message[]
   hubspotConversations HubspotConversation[]
 
@@ -96,7 +84,6 @@ model Message {
   isFromUser Boolean
   createdAt  DateTime @default(now())
 
-  // Relations
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@map("messages")
@@ -110,7 +97,6 @@ model HubspotConversation {
   channelId        Int      @map("channel_id")
   createdAt        DateTime @default(now())
 
-  // Relations
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, hubspotContactId, channelId])
