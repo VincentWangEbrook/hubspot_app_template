@@ -75,7 +75,7 @@ export class HubspotService {
   }
 
   private async resolveTenantByPortal(portalId: string): Promise<string | null> {
-    const tenant = await this.tenantService.getTenant({ hubId: portalId });
+    const tenant = await this.tenantService.getTenant({ hubspot_id: portalId });
     return tenant ? tenant.id : null;
   }
 
@@ -135,6 +135,38 @@ export class HubspotService {
     } catch (error: any) {
       this.logger.error(`Failed to fetch message content for ${messageId}: ${error.message}`);
       return "New message (content unavailable)";
+    }
+  }
+
+  /**
+   * Fetch contacts from HubSpot for a tenant.
+   * Returns an array of contact objects.
+   */
+  async getContacts(tenantId: string): Promise<any[]> {
+    try {
+      const client = await this.hubspotClientFactory.getClient(tenantId);
+      const response = await client.crm.contacts.getAll();
+      // getAll() returns an array directly, not an object with results
+      return Array.isArray(response) ? response : [];
+    } catch (error: any) {
+      this.logger.error(`Failed to fetch contacts for tenant ${tenantId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Sync contacts from HubSpot to tenant schema.
+   * Fetches all contacts and returns them.
+   */
+  async syncContacts(tenantId: string): Promise<any[]> {
+    try {
+      const contacts = await this.getContacts(tenantId);
+      this.logger.log(`Synced ${contacts.length} contacts for tenant ${tenantId}`);
+      // TODO: Persist contacts to tenant-specific schema if needed
+      return contacts;
+    } catch (error: any) {
+      this.logger.error(`Failed to sync contacts for tenant ${tenantId}: ${error.message}`);
+      throw error;
     }
   }
 }

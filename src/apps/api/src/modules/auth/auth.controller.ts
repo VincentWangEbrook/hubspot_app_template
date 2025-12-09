@@ -1,8 +1,9 @@
 import { Controller, Get, Post, Body, Req, Query, UseGuards, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { TenantService } from '../tenants/services/tenant.service';
-import { FastifyRequest as Request } from 'fastify';
+import { FastifyRequest } from 'fastify';
 import { TenantDbService } from '../tenants/services/tenant-db.service';
+import { Public } from '../../common/security/public.decorator';
 
 @Controller('api/auth')
 export class AuthController {
@@ -12,63 +13,44 @@ export class AuthController {
     private readonly tenantDb: TenantDbService
   ) {}
 
+  @Public()
   @Get('hubspot/url')
   getHubSpotAuthUrl(@Query('state') state = 'default') {
     return { url: this.auth.getAuthorizationUrl(state) };
   }
 
   // 前端从前面拿到 code 后，发送 POST /api/auth/hubspot { code, tenantId }
-  // 这里我们期望 Authorization header 中携带 JWT，表明当前登录用户
+  // 这里我们期望用户已经登录（通过 session）
   @Post('hubspot')
-  async handleHubspotCallback(@Req() req: Request, @Body() body: { code: string; tenantId: string }) {
-    const authHeader = req.headers['authorization'] as string | undefined;
-    let userId: string | undefined;
-    if (authHeader?.startsWith('Bearer ')) {
-      try {
-        // decode JWT or use AuthUserService to validate (示例简化)
-        const token = authHeader.slice(7);
-        const payload = this.auth.verifyJwt(token); // 你需要在 AuthService 中实现 verifyJwt 或使用 JwtService
-        userId = payload?.sub;
-      } catch (err) {
-        console.log(err)
-        // 如果没有登录用户，可以允许为匿名，也可以拒绝
-        userId = undefined;
-      }
-    }
-
-    if (!userId) {
-      throw new UnauthorizedException('用户 ID 不存在，请重新登录');
-    }
-
+  async handleHubspotCallback(@Req() req: FastifyRequest, @Body() body: { code: string; tenantId: string }) {
     const { code, tenantId } = body;
+
     if (!code) return { success: false, message: 'Missing code' };
     if (!tenantId) return { success: false, message: 'Missing tenantId' };
-    console.log('code: ' + code, 'tenantId: ' + tenantId);
+
     // 交换 token
-    const tokenData = await this.auth.exchangeCodeForToken(code, tenantId);
+    const tokenData = await this.auth.exchangeCodeForToken(code);
 
     if (!tokenData) return { success: false, message: 'Failed to exchange token' };
 
-    console.log('tokenData: ', tokenData);
-    // tokenData 包含 access_token, refresh_token, hub_id...
-    const hubId = tokenData.hub_id ?? tokenData.hubId;
+    // tokenData 包含 access_token, refresh_token, hubspot_id...
+    const hubId = String(tokenData.hub_id);
 
-    // 如果前端没有传 tenantId（比如 marketplace 安装没生成），我们可尝试用 hubId 查找已存在 tenant，
-    // 如果 hubId 未找到，就生成一个新的 tenantId（crypto.randomUUID）
+    // 如果前端没有传 tenantId（比如 marketplace 安装没生成），我们可尝试用 hubspot_id 查找已存在 tenant，
+    // 如果 hubspot_id 未找到，就生成一个新的 tenantId（crypto.randomUUID）
     const candidateTenantId = tenantId ?? crypto.randomUUID();
 
-    // Upsert tenant：使用 hubId 或 tenantId 做匹配，设置 createdBy = userId（如果有）
+    // Upsert tenant：使用 hubspot_id 或 tenantId 做匹配，设置 createdBy = userId（如果有）
     const t = await this.tenantService.upsertTenant(
-      { id: candidateTenantId, hubId },
+      { id: candidateTenantId, hubspot_id: hubId },
       {
         name: `HubSpot ${hubId ?? candidateTenantId}`,
-        hubId,
         hubspotAccessToken: tokenData.access_token,
         hubspotRefreshToken: tokenData.refresh_token,
         raw: tokenData,
-        createdBy: userId,
+        createdBy: req.session.user?.id,
         hubspotScope: tokenData.scopes,
-        user: {id: userId}
+        hubspotExpiresAt: tokenData.expires_in,
       },
       { setCreatedByIfMissing: true },
     );

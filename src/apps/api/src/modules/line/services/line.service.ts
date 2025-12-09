@@ -97,6 +97,11 @@ export class LineService {
    */
   private async handleMessageEvent(event: MessageEvent, tenantId: string) {
     const lineUserId = event.source.userId!;
+    // Type guard: only text messages have the text property
+    if (event.message.type !== 'text') {
+      this.logger.log(`Tenant ${tenantId} - Received non-text message from ${lineUserId}, skipping`);
+      return;
+    }
     const messageText = event.message.text;
     this.logger.log(`租户 ${tenantId} - 收到 Line 消息 [${lineUserId}]: ${messageText}`);
 

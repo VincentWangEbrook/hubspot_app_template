@@ -1,10 +1,10 @@
 -- CreateTable
 CREATE TABLE "users" (
-    "id" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "password" TEXT NOT NULL,
-    "username" TEXT NOT NULL,
-    "role" TEXT NOT NULL DEFAULT 'user',
+    "id" UUID NOT NULL,
+    "email" VARCHAR(255) NOT NULL,
+    "password" VARCHAR(255) NOT NULL,
+    "username" VARCHAR(100) NOT NULL,
+    "role" VARCHAR(50) NOT NULL DEFAULT 'user',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
@@ -12,28 +12,27 @@ CREATE TABLE "users" (
 
 -- CreateTable
 CREATE TABLE "tenants" (
-    "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "hubId" TEXT,
-    "hubspotAccessToken" TEXT,
-    "hubspotRefreshToken" TEXT,
-    "hubspotExpiresAt" TIMESTAMP(3),
-    "hubspotScope" TEXT,
-    "createdBy" TEXT,
+    "id" UUID NOT NULL,
+    "name" VARCHAR(255) NOT NULL,
+    "hubspot_id" VARCHAR(100) NOT NULL,
+    "hubspot_access_token" TEXT,
+    "hubspot_refresh_token" TEXT,
+    "hubspot_expires_at" INTEGER,
+    "hubspot_scope" JSONB,
+    "created_by" UUID NOT NULL,
     "raw" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    "userId" TEXT,
 
     CONSTRAINT "tenants_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "tenant_members" (
-    "id" TEXT NOT NULL,
-    "tenant_id" TEXT NOT NULL,
-    "user_id" TEXT NOT NULL,
-    "role" TEXT NOT NULL DEFAULT 'member',
+    "id" UUID NOT NULL,
+    "tenant_id" UUID NOT NULL,
+    "user_id" UUID NOT NULL,
+    "role" VARCHAR(50) NOT NULL DEFAULT 'member',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -43,12 +42,12 @@ CREATE TABLE "tenant_members" (
 -- CreateTable
 CREATE TABLE "channels" (
     "id" SERIAL NOT NULL,
-    "tenantId" TEXT NOT NULL,
-    "channelType" TEXT NOT NULL,
-    "externalUserId" TEXT NOT NULL,
-    "hubspotContactId" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "tenant_id" UUID NOT NULL,
+    "channel_type" VARCHAR(50) NOT NULL,
+    "external_user_id" VARCHAR(255) NOT NULL,
+    "hubspot_contact_id" VARCHAR(100) NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "channels_pkey" PRIMARY KEY ("id")
 );
@@ -57,10 +56,10 @@ CREATE TABLE "channels" (
 CREATE TABLE "messages" (
     "id" SERIAL NOT NULL,
     "channel_id" INTEGER NOT NULL,
-    "tenantId" TEXT NOT NULL,
+    "tenant_id" UUID NOT NULL,
     "content" TEXT NOT NULL,
-    "isFromUser" BOOLEAN NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "is_from_user" BOOLEAN NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "messages_pkey" PRIMARY KEY ("id")
 );
@@ -68,11 +67,11 @@ CREATE TABLE "messages" (
 -- CreateTable
 CREATE TABLE "hubspot_conversations" (
     "id" SERIAL NOT NULL,
-    "tenantId" TEXT NOT NULL,
-    "hubspotContactId" TEXT NOT NULL,
-    "conversationId" TEXT NOT NULL,
+    "tenant_id" UUID NOT NULL,
+    "hubspot_contact_id" VARCHAR(100) NOT NULL,
+    "conversation_id" VARCHAR(100) NOT NULL,
     "channel_id" INTEGER NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "hubspot_conversations_pkey" PRIMARY KEY ("id")
 );
@@ -81,19 +80,16 @@ CREATE TABLE "hubspot_conversations" (
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "tenants_hubId_key" ON "tenants"("hubId");
+CREATE UNIQUE INDEX "tenants_hubspot_id_key" ON "tenants"("hubspot_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "tenant_members_tenant_id_user_id_key" ON "tenant_members"("tenant_id", "user_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "channels_tenantId_channelType_externalUserId_key" ON "channels"("tenantId", "channelType", "externalUserId");
+CREATE UNIQUE INDEX "channels_tenant_id_channel_type_external_user_id_key" ON "channels"("tenant_id", "channel_type", "external_user_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "hubspot_conversations_tenantId_hubspotContactId_channel_id_key" ON "hubspot_conversations"("tenantId", "hubspotContactId", "channel_id");
-
--- AddForeignKey
-ALTER TABLE "tenants" ADD CONSTRAINT "tenants_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+CREATE UNIQUE INDEX "hubspot_conversations_tenant_id_hubspot_contact_id_channel__key" ON "hubspot_conversations"("tenant_id", "hubspot_contact_id", "channel_id");
 
 -- AddForeignKey
 ALTER TABLE "tenant_members" ADD CONSTRAINT "tenant_members_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;

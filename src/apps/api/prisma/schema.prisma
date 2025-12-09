@@ -1,6 +1,5 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -11,47 +10,48 @@ datasource db {
 // ----------------- Models -----------------
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  username  String
-  role      String   @default("user")
-  createdAt DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid()) @db.Uuid
+  email      String   @unique @db.VarChar(255)
+  password   String   @db.VarChar(255)
+  username   String   @db.VarChar(100)
+  role       String   @default("user") @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at")
 
   // Relations
-  tenantsOwned      Tenant[]       @relation("UserTenants")
-  tenantMemberships TenantMember[]
+  tenantMemberships   TenantMember[]
+  createdTenants      Tenant[]              @relation("TenantCreator")
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
 
 model Tenant {
-  id                  String    @id
-  name                String
-  hubId               String?   @unique
-  hubspotAccessToken  String?   @db.Text
-  hubspotRefreshToken String?   @db.Text
-  hubspotExpiresAt    DateTime?
-  hubspotScope        String?   @db.Text
-  createdBy           String?
+  id                  String    @id @default(uuid()) @db.Uuid
+  name                String    @db.VarChar(255)
+  hubspotId           String    @unique @map("hubspot_id") @db.VarChar(100)
+  hubspotAccessToken  String?   @map("hubspot_access_token") @db.Text
+  hubspotRefreshToken String?   @map("hubspot_refresh_token") @db.Text
+  hubspotExpiresAt    Int?      @map("hubspot_expires_at")
+  hubspotScope        Json?     @map("hubspot_scope")
+  createdBy           String    @map("created_by") @db.Uuid
   raw                 Json?
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  userId  String?
-  user    User?          @relation("UserTenants", fields: [userId], references: [id])
+  // Relations
   members TenantMember[]
+  creator User           @relation("TenantCreator", fields: [createdBy], references: [id])
 
   @@map("tenants")
 }
 
 model TenantMember {
-  id        String   @id @default(uuid())
-  tenantId  String
-  userId    String
-  role      String   @default("member")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  role      String    @default("member") @db.VarChar(50)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -62,12 +62,12 @@ model TenantMember {
 
 model Channel {
   id               Int      @id @default(autoincrement())
-  tenantId         String
-  channelType      String
-  externalUserId   String
-  hubspotContactId String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  tenantId         String   @map("tenant_id") @db.Uuid
+  channelType      String   @map("channel_type") @db.VarChar(50) // 'LINE', 'WECHAT', 'OTHER'
+  externalUserId   String   @map("external_user_id") @db.VarChar(255)
+  hubspotContactId String   @map("hubspot_contact_id") @db.VarChar(100)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   messages             Message[]
   hubspotConversations HubspotConversation[]
@@ -77,12 +77,12 @@ model Channel {
 }
 
 model Message {
-  id         Int      @id @default(autoincrement())
-  channelId  Int      @map("channel_id")
-  tenantId   String
-  content    String   @db.Text
-  isFromUser Boolean
-  createdAt  DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  channelId   Int      @map("channel_id")
+  tenantId    String   @map("tenant_id") @db.Uuid
+  content     String   @db.Text
+  isFromUser  Boolean  @map("is_from_user")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
@@ -91,14 +91,29 @@ model Message {
 
 model HubspotConversation {
   id               Int      @id @default(autoincrement())
-  tenantId         String
-  hubspotContactId String
-  conversationId   String
+  tenantId         String   @map("tenant_id") @db.Uuid
+  hubspotContactId String   @map("hubspot_contact_id") @db.VarChar(100)
+  conversationId   String   @map("conversation_id") @db.VarChar(100)
   channelId        Int      @map("channel_id")
-  createdAt        DateTime @default(now())
+  createdAt        DateTime @default(now()) @map("created_at")
 
   channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, hubspotContactId, channelId])
   @@map("hubspot_conversations")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_reset_tokens")
 }

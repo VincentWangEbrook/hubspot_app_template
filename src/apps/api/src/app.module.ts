@@ -1,10 +1,6 @@
-/**
- * Developed by eBrook Group.
- * Copyright © 2025 eBrook Group (https://www.ebrook.com.tw)
- */
-
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import * as path from 'path';
 import { TenantModule } from './modules/tenants/tenant.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -14,10 +10,14 @@ import { ChatModule } from './modules/chat/chat.module';
 import { LineModule } from './modules/line/line.module';
 import { LineSyncModule } from './modules/line-sync/line-sync.module';
 import { UserModule } from './modules/user/user.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { RateLimiterModule } from 'nestjs-rate-limiter';
 import { rateLimiterOptions } from './rate-limiter.config';
 import { SessionExpireMiddleware } from './middlewares/session-expire.middleware';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { SessionGuard } from './common/security/session.guard';
+import { CommonSecurityModule } from './common/security/common.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   imports: [
@@ -31,6 +31,8 @@ import { PrismaModule } from './modules/prisma/prisma.module';
       cache: true, // 缓存配置（提升性能）
     }),
     PrismaModule,
+    EmailModule,
+    CommonSecurityModule,
     TenantModule,
     AuthModule,
     SubscriptionModule,
@@ -39,8 +41,16 @@ import { PrismaModule } from './modules/prisma/prisma.module';
     LineModule,
     LineSyncModule,
     UserModule,
+    AdminModule,
     RateLimiterModule.register(rateLimiterOptions),
-  ]
+  ],
+  providers: [
+    // Add SessionGuard as global guard
+    {
+      provide: APP_GUARD,
+      useClass: SessionGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
@@ -49,6 +59,9 @@ export class AppModule implements NestModule {
     .exclude(
       '/api/auth/login', // 登录接口
       '/api/auth/register', // 注册接口
+      '/api/auth/forgot-password', // 忘记密码接口
+      '/api/auth/reset-password', // 重置密码接口
+      '/api/auth/verify-reset-token', // 验证重置令牌接口
     )
     .forRoutes('*');
   }

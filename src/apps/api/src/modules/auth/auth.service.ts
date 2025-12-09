@@ -56,7 +56,7 @@ export class AuthService {
     return tokenData;
   }
 
-  async exchangeCodeForToken(code: string, tenantId: string) {
+  async exchangeCodeForToken(code: string) {
     const tokenUrl = 'https://api.hubapi.com/oauth/v1/token';
     try {
       const params = new URLSearchParams();
@@ -70,17 +70,10 @@ export class AuthService {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       });
 
-      await this.tenantService.upsertTenant({id: tenantId, hubId: data.hub_id}, {
-        hubspotAccessToken: data.access_token,
-        hubspotRefreshToken: data.refresh_token,
-        hubspotScope: data.scope,
-        raw: data,
-      });
-
       return data;
     } catch (err: any) {
       this.logger.error('HubSpot token exchange failed', err?.response?.data ?? err.message);
-      //throw err;
+      throw err;
     }
   }
 }

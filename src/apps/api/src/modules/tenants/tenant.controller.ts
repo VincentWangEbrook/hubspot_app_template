@@ -98,7 +98,7 @@ export class TenantController {
     try {
       await this.tenants.upsertTenant({ id: tenantId }, {
         name: 'Verification Tenant ' + tenantId.slice(0, 8),
-        hubId: 'verify-' + Date.now(),
+        hubspot_id: 'verify-' + Date.now(),
       });
       return res.send({ success: true, message: `Tenant ${tenantId} created and schema initialized.` });
     } catch (e) {

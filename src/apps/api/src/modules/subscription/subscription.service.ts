@@ -47,8 +47,8 @@ export class SubscriptionService {
         const session = event.data.object as Stripe.Checkout.Session;
         const tenantId = session.metadata?.tenantId;
         if (tenantId) {
-          // 现在可以正常使用 this.tenantService 了
-          await this.tenantService.upsertTenant(tenantId, {
+          // upsertTenant expects { id?: string; shubspot_id?: string } as first param
+          await this.tenantService.upsertTenant({ id: tenantId }, {
             raw: { stripeCheckout: session },
           });
         }

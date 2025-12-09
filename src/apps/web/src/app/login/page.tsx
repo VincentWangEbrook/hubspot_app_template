@@ -174,8 +174,6 @@ export default function LoginPage() {
                 <a 
                   href="/forgot-password" 
                   className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-                  target="_blank" // 优化：新窗口打开，避免返回丢失状态
-                  rel="noopener noreferrer"
                 >
                   忘记密码?
                 </a>

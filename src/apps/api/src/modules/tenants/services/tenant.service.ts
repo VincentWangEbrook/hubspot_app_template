@@ -15,21 +15,21 @@ export class TenantService {
 
   /**
    * Upsert semantics:
-   * - If tenant exists by id or hubId, update fields (and encrypt tokens before save)
+   * - If tenant exists by id or hubspot_id, update fields (and encrypt tokens before save)
    * - Otherwise create new tenant
    */
   async upsertTenant(
-    identifier: { id?: string; hubId?: string },
+    identifier: { id: string; hubspot_id: string,  },
     patch: Partial<any>, // Use any or define a DTO, since Tenant entity is gone/changing
     options?: { setCreatedByIfMissing?: boolean },
   ) {
-    // find existing by id or hubId
+    // find existing by id or hubspot_id
     let t: any = null;
     if (identifier.id) {
       t = await this.prisma.tenant.findUnique({ where: { id: identifier.id } });
     }
-    if (!t && identifier.hubId) {
-      t = await this.prisma.tenant.findUnique({ where: { hubId: identifier.hubId } });
+    if (!t && identifier.hubspot_id) {
+      t = await this.prisma.tenant.findUnique({ where: { hubspotId: String(identifier.hubspot_id) } });
     }
 
     // encrypt tokens in patch (if present)
@@ -46,20 +46,19 @@ export class TenantService {
 
     if (!t) {
       // Create
-      const newId = identifier.id ?? (patch.id ?? crypto.randomUUID());
+      const newId = identifier.id;
       if (!newId) throw new Error('Missing tenant id to create new tenant');
-      
       result = await this.prisma.tenant.create({
         data: {
           id: newId,
-          name: patch.name ?? 'Unnamed Tenant',
-          hubId: patch.hubId ?? identifier.hubId,
+          name: p.name ?? 'Unnamed Tenant',
+          hubspotId: identifier.hubspot_id,
           hubspotAccessToken: p.hubspotAccessToken,
           hubspotRefreshToken: p.hubspotRefreshToken,
           hubspotExpiresAt: p.hubspotExpiresAt,
           hubspotScope: p.hubspotScope,
-          createdBy: patch.createdBy,
-          raw: patch.raw,
+          createdBy: p.createdBy,
+          raw: p.raw,
           // If we want to link user, we need userId. Assuming createdBy is just string for now as per schema.
         }
       });
@@ -88,16 +87,16 @@ export class TenantService {
       }
     }
 
-    this.logger.log(`Upsert tenant ${result.id} (hubId=${result.hubId ?? 'n/a'})`);
+    this.logger.log(`Upsert tenant ${result.id} (hubspot_id=${result.hubspotId ?? 'n/a'})`);
     return result;
   }
 
-  async getTenant(idOrHubId: { id?: string; hubId?: string }) {
+  async getTenant(idOrHubId: { id?: string; hubspot_id?: string }) {
     let t: any = null;
     if (idOrHubId.id) {
       t = await this.prisma.tenant.findUnique({ where: { id: idOrHubId.id } });
-    } else if (idOrHubId.hubId) {
-      t = await this.prisma.tenant.findUnique({ where: { hubId: idOrHubId.hubId } });
+    } else if (idOrHubId.hubspot_id) {
+      t = await this.prisma.tenant.findUnique({ where: { hubspotId: idOrHubId.hubspot_id } });
     }
     if (!t) return null;
 
@@ -121,7 +120,7 @@ export class TenantService {
 
   async listTenantsByUser(userId: string) {
     const own = await this.prisma.tenant.findMany({ where: { createdBy: userId } });
-    const memberships = await this.prisma.tenantMember.findMany({ where: { userId } });
+    const memberships = await this.prisma.tenantMember.findMany({ where: { userId: userId } });
     const tenantIds = Array.from(new Set([...own.map(t => t.id), ...memberships.map(m => m.tenantId)]));
     if (tenantIds.length === 0) return [];
     return this.prisma.tenant.findMany({ where: { id: { in: tenantIds } } });

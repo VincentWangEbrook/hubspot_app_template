@@ -7,7 +7,7 @@ import { RateLimiterModule } from 'nestjs-rate-limiter';
 @Module({
   imports: [
     SharedModule,
-    RateLimiterModule
+    RateLimiterModule,
   ],
   controllers: [UserController],
   providers: [UserService],

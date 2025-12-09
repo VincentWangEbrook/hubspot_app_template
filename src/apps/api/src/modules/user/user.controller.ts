@@ -1,14 +1,18 @@
-import { Controller, Post, Body, Req, Res, Get, UseGuards, UnauthorizedException} from '@nestjs/common';
+import { Controller, Post, Body, Req, Res, Get, UseGuards, UnauthorizedException, BadRequestException, Query } from '@nestjs/common';
 import { UserService } from './user.service';
 import { LoginDto } from './dto/login.dto';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { RateLimiterGuard, RateLimit } from 'nestjs-rate-limiter';
+import { Public } from '../../common/security/public.decorator';
 import * as bcrypt from 'bcrypt';
+import { RolesGuard } from '../../common/security/roles.guard';
 
 @Controller('api/auth')
+@UseGuards(RolesGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
+  @Public()
   @Post('register')
   @UseGuards(RateLimiterGuard)
   @RateLimit({
@@ -24,6 +28,7 @@ export class UserController {
     return res.send({ success: true, data: user });
   }
 
+  @Public()
   @Post('login')
   @UseGuards(RateLimiterGuard) // 启用限流
   @RateLimit({
@@ -125,5 +130,71 @@ export class UserController {
     const newUser = await this.userService.update(user.id, body.username);
 
     return res.send({success: true, message: '更新成功', data: { user: newUser } });
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @UseGuards(RateLimiterGuard)
+  @RateLimit({
+    points: 3,
+    duration: 300,
+    errorMessage: '请求过于频繁，请5分钟后再试。',
+  })
+  async forgotPassword(
+    @Body() body: { email: string },
+    @Res() res: FastifyReply,
+  ) {
+    const { email } = body;
+
+    if (!email || !email.includes('@')) {
+      throw new BadRequestException('请输入有效的邮箱地址');
+    }
+
+    await this.userService.createPasswordResetToken(email);
+
+    return res.send({
+      success: true,
+      message: '如果该邮箱已注册，重置密码邮件将会发送到您的邮箱。',
+    });
+  }
+
+  @Public()
+  @Post('reset-password')
+  @UseGuards(RateLimiterGuard)
+  @RateLimit({
+    points: 5,
+    duration: 300,
+    errorMessage: '请求过于频繁，请稍后再试。',
+  })
+  async resetPassword(
+    @Body() body: { token: string; password: string },
+    @Res() res: FastifyReply,
+  ) {
+    const { token, password } = body;
+
+    if (!token) {
+      throw new BadRequestException('重置令牌无效');
+    }
+
+    await this.userService.resetPasswordWithToken(token, password);
+
+    return res.send({
+      success: true,
+      message: '密码重置成功，请使用新密码登录。',
+    });
+  }
+
+  @Public()
+  @Get('verify-reset-token')
+  async verifyResetToken(
+    @Query('token') token: string,
+    @Res() res: FastifyReply,
+  ) {
+    const result = await this.userService.verifyResetToken(token);
+
+    return res.send({
+      success: result.valid,
+      message: result.message,
+    });
   }
 }

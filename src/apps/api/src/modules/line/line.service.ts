@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { MultiChannelService } from '../hubspot/services/multi-channel.service';
-import { TenantDataSourceFactory } from '../hubspot/services/tenant-data-source.factory';
 
 // NOTE: 你要实现真实的 Line Messaging API 发送逻辑（replace TODO）
 @Injectable()
 export class LineService {
   constructor(
     private readonly multi: MultiChannelService,
-    private readonly tenantDSFactory: TenantDataSourceFactory,
   ) {}
 
   // 保存 incoming 并异步交给 queue（listener 会做 queue）
