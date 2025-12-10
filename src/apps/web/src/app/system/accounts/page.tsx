@@ -1,173 +1,211 @@
 'use client';
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+
+import { useEffect, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
-import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import { apiFetch } from '@/lib/apiFetch';
+import { User, Role } from '@/types';
+import { PermissionGuard, NoPermissionFallback } from '@/components/PermissionGuard';
+import { Loader } from '@/components/ui/Loader';
 
-// 模拟账号数据
-const accountData = [
-  { id: '1', username: 'admin', role: '管理员', status: '启用', createTime: '2025-01-10' },
-  { id: '2', username: 'user1', role: '普通用户', status: '启用', createTime: '2025-02-15' },
-  { id: '3', username: 'user2', role: '普通用户', status: '禁用', createTime: '2025-03-20' },
-];
+// 扩展用户类型，包含角色信息
+interface UserWithRoles extends User {
+  roles?: Role[];
+}
 
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState(accountData);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newAccount, setNewAccount] = useState({
-    username: '',
-    role: '普通用户',
-    status: '启用',
-  });
+  const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setNewAccount(prev => ({ ...prev, [name]: value }));
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await apiFetch<UserWithRoles[]>('/admin/users');
+      if (response.success && response.data) {
+        setUsers(response.data);
+      } else {
+        setError(response.message || '加载用户列表失败');
+      }
+    } catch (err) {
+      setError('加载用户列表时发生错误');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleAddAccount = () => {
-    // 实际项目：提交新增账号请求
-    const newId = String(accounts.length + 1);
-    const account = {
-      ...newAccount,
-      id: newId,
-      createTime: new Date().toLocaleDateString().replace(/\//g, '-'),
-    };
-    setAccounts([...accounts, account]);
-    setIsAddDialogOpen(false);
-    setNewAccount({ username: '', role: '普通用户', status: '启用' });
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
   };
 
-  const handleToggleStatus = (id: string) => {
-    // 实际项目：提交状态修改请求
-    setAccounts(prev =>
-      prev.map(account =>
-        account.id === id ? { ...account, status: account.status === '启用' ? '禁用' : '启用' } : account
-      )
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+
+    setIsDeleting(true);
+    setError('');
+    try {
+      const response = await apiFetch(`/admin/users/${userToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.success) {
+        setUsers(users.filter(u => u.id !== userToDelete.id));
+        setDeleteDialogOpen(false);
+        setUserToDelete(null);
+      } else {
+        setError(response.message || '删除用户失败');
+      }
+    } catch (err) {
+      setError('删除用户时发生错误');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const getRoleBadges = (roles?: Role[]) => {
+    if (!roles || roles.length === 0) {
+      return (
+        <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+          无角色
+        </span>
+      );
+    }
+    return (
+      <div className="flex flex-wrap gap-1">
+        {roles.map(role => (
+          <span 
+            key={role.id}
+            className={`px-2 py-1 rounded text-xs font-medium ${
+              role.code === 'super_admin' ? 'bg-red-100 text-red-800' :
+              role.code === 'admin' ? 'bg-purple-100 text-purple-800' : 
+              'bg-gray-100 text-gray-800'
+            }`}
+          >
+            {role.name}
+          </span>
+        ))}
+      </div>
     );
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">账号管理</h1>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">新增账号</Button>
-          </DialogTrigger>
+    <PermissionGuard 
+      permissions="user:read" 
+      fallback={<NoPermissionFallback message="您没有权限访问此页面。此页面仅限系统管理员访问。" />}
+    >
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">用户管理</h1>
+            <p className="text-sm text-gray-500 mt-1">管理系统中的所有用户账号</p>
+          </div>
+          <Button onClick={loadUsers} variant="secondary">
+            刷新列表
+          </Button>
+        </div>
+
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader />
+          </div>
+        ) : (
+          <Card>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>用户名</TableHead>
+                    <TableHead>邮箱</TableHead>
+                    <TableHead>角色</TableHead>
+                    <TableHead>创建时间</TableHead>
+                    <TableHead>操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-gray-500 py-8">
+                        暂无用户数据
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.username}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{getRoleBadges(user.roles)}</TableCell>
+                        <TableCell>
+                          {new Date(user.createdAt).toLocaleDateString('zh-CN')}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleDeleteClick(user)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            删除
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>新增账号</DialogTitle>
-              <DialogDescription>填写账号信息，创建新用户。</DialogDescription>
+              <DialogTitle>确认删除用户</DialogTitle>
+              <DialogDescription>
+                您确定要删除用户 <strong>{userToDelete?.username}</strong> ({userToDelete?.email}) 吗？
+                此操作无法撤销。
+                {userToDelete?.roles?.some(r => r.code === 'admin' || r.code === 'super_admin') && (
+                  <div className="mt-2 text-yellow-600">
+                    ⚠️ 注意：您正在删除一个管理员账号。
+                  </div>
+                )}
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="username" className="text-right">
-                  用户名
-                </Label>
-                <Input
-                  id="username"
-                  name="username"
-                  value={newAccount.username}
-                  onChange={handleInputChange}
-                  className="col-span-3"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role" className="text-right">
-                  角色
-                </Label>
-                <Select
-                  name="role"
-                  value={newAccount.role}
-                  onValueChange={(value) => setNewAccount(prev => ({ ...prev, role: value }))}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="选择角色" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="管理员">管理员</SelectItem>
-                    <SelectItem value="普通用户">普通用户</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="status" className="text-right">
-                  状态
-                </Label>
-                <Select
-                  name="status"
-                  value={newAccount.status}
-                  onValueChange={(value) => setNewAccount(prev => ({ ...prev, status: value }))}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="选择状态" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="启用">启用</SelectItem>
-                    <SelectItem value="禁用">禁用</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
             <DialogFooter>
-              <Button variant="secondary" onClick={() => setIsAddDialogOpen(false)}>
+              <Button 
+                variant="secondary" 
+                onClick={() => setDeleteDialogOpen(false)}
+                disabled={isDeleting}
+              >
                 取消
               </Button>
-              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleAddAccount}>
-                确认创建
+              <Button 
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+              >
+                {isDeleting ? '删除中...' : '确认删除'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
-
-      <Card>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>账号ID</TableHead>
-                <TableHead>用户名</TableHead>
-                <TableHead>角色</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>创建时间</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {accounts.map((account) => (
-                <TableRow key={account.id}>
-                  <TableCell>{account.id}</TableCell>
-                  <TableCell>{account.username}</TableCell>
-                  <TableCell>{account.role}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      account.status === '启用' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {account.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{account.createTime}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleToggleStatus(account.id)}
-                    >
-                      {account.status === '启用' ? '禁用' : '启用'}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
+    </PermissionGuard>
   );
 }

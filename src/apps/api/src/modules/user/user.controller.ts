@@ -51,6 +51,7 @@ export class UserController {
         id: safeUser.id,
         username: safeUser.username,
         email: safeUser.email,
+        permissions: safeUser.permissions,
         lastActiveTime: Date.now(), // 关键：初始化最后活跃时间
       };
 

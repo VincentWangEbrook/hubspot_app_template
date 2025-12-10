@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EncryptionService } from '../../../common/security/encryption.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SchemaManagerService } from './schema-manager.service';
@@ -7,6 +7,9 @@ import { SchemaManagerService } from './schema-manager.service';
 export class TenantService {
   private readonly logger = new Logger(TenantService.name);
 
+  // 缓存角色ID
+  private roleCache: Map<string, string> = new Map();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
@@ -14,12 +17,32 @@ export class TenantService {
   ) {}
 
   /**
+   * 获取租户角色ID（带缓存）
+   */
+  private async getTenantRoleId(roleCode: string): Promise<string> {
+    if (this.roleCache.has(roleCode)) {
+      return this.roleCache.get(roleCode)!;
+    }
+
+    const role = await this.prisma.role.findUnique({
+      where: { code: roleCode },
+    });
+
+    if (!role) {
+      throw new BadRequestException(`角色 ${roleCode} 不存在，请先运行数据库 seed`);
+    }
+
+    this.roleCache.set(roleCode, role.id);
+    return role.id;
+  }
+
+  /**
    * Upsert semantics:
    * - If tenant exists by id or hubspot_id, update fields (and encrypt tokens before save)
    * - Otherwise create new tenant
    */
   async upsertTenant(
-    identifier: { id: string; hubspot_id: string,  },
+    identifier: { id?: string; hubspot_id?: string },
     patch: Partial<any>, // Use any or define a DTO, since Tenant entity is gone/changing
     options?: { setCreatedByIfMissing?: boolean },
   ) {
@@ -48,11 +71,14 @@ export class TenantService {
       // Create
       const newId = identifier.id;
       if (!newId) throw new Error('Missing tenant id to create new tenant');
+      const hubId = identifier.hubspot_id;
+      if (!hubId) throw new Error('Missing hubspot_id to create new tenant');
+
       result = await this.prisma.tenant.create({
         data: {
           id: newId,
           name: p.name ?? 'Unnamed Tenant',
-          hubspotId: identifier.hubspot_id,
+          hubspotId: hubId,
           hubspotAccessToken: p.hubspotAccessToken,
           hubspotRefreshToken: p.hubspotRefreshToken,
           hubspotExpiresAt: p.hubspotExpiresAt,
@@ -82,8 +108,21 @@ export class TenantService {
       try {
         await this.schemaManager.createTenantSchema(result.id);
         this.logger.log(`Created schema for new tenant ${result.id}`);
+
+        // Add creator as owner
+        if (result.createdBy) {
+          const ownerRoleId = await this.getTenantRoleId('tenant_owner');
+          await this.prisma.tenantMember.create({
+            data: {
+              tenantId: result.id,
+              userId: result.createdBy,
+              roleId: ownerRoleId,
+            },
+          });
+          this.logger.log(`Added creator ${result.createdBy} as owner of tenant ${result.id}`);
+        }
       } catch (e) {
-        this.logger.error(`Failed to create schema for tenant ${result.id}`, e);
+        this.logger.error(`Failed to initialize tenant ${result.id}`, e);
       }
     }
 
@@ -144,13 +183,29 @@ export class TenantService {
   async getTenantMembers(tenantId: string) {
     const members = await this.prisma.tenantMember.findMany({
       where: { tenantId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+          },
+        },
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
     });
 
     // Sort by role: owner first, then admin, then member
-    const roleOrder = { owner: 0, admin: 1, member: 2 };
+    const roleOrder: Record<string, number> = { tenant_owner: 0, tenant_admin: 1, tenant_member: 2 };
     return members.sort((a, b) => {
-      const aOrder = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
-      const bOrder = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
+      const aOrder = roleOrder[a.role?.code || ''] ?? 3;
+      const bOrder = roleOrder[b.role?.code || ''] ?? 3;
       return aOrder - bOrder;
     });
   }
@@ -158,11 +213,19 @@ export class TenantService {
   async addMemberByEmail(
     tenantId: string,
     email: string,
-    role: 'admin' | 'member',
+    roleId: string,
     currentUserId: string
   ) {
     // Check if current user has permission (must be owner or admin)
     await this.isMemberOrOwner(tenantId, currentUserId);
+
+    // Validate role exists and is tenant type
+    const role = await this.prisma.role.findUnique({
+      where: { id: roleId },
+    });
+    if (!role || role.type !== 'tenant') {
+      throw new BadRequestException('无效的角色');
+    }
 
     // Find user by email
     const user = await this.prisma.user.findUnique({ where: { email } });
@@ -189,7 +252,23 @@ export class TenantService {
       data: {
         tenantId,
         userId: user.id,
-        role,
+        roleId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+          },
+        },
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
       },
     });
   }
@@ -198,13 +277,16 @@ export class TenantService {
     // Check if current user has permission
     await this.isMemberOrOwner(tenantId, currentUserId);
 
-    // Get the member to remove
+    // Get the member to remove with role info
     const memberToRemove = await this.prisma.tenantMember.findUnique({
       where: {
         tenantId_userId: {
           tenantId,
           userId: userIdToRemove,
         },
+      },
+      include: {
+        role: true,
       },
     });
 
@@ -213,7 +295,7 @@ export class TenantService {
     }
 
     // Cannot remove owner
-    if (memberToRemove.role === 'owner') {
+    if (memberToRemove.role?.code === 'tenant_owner') {
       throw new Error('不能移除所有者');
     }
 
@@ -225,9 +307,12 @@ export class TenantService {
           userId: currentUserId,
         },
       },
+      include: {
+        role: true,
+      },
     });
 
-    if (currentMember?.role === 'admin' && memberToRemove.role === 'admin') {
+    if (currentMember?.role?.code === 'tenant_admin' && memberToRemove.role?.code === 'tenant_admin') {
       throw new Error('管理员不能移除其他管理员');
     }
 
@@ -245,11 +330,39 @@ export class TenantService {
   async updateMemberRole(
     tenantId: string,
     userIdToUpdate: string,
-    newRole: 'admin' | 'member' | 'owner',
+    newRoleId: string,
     currentUserId: string
   ) {
     // Check if current user has permission (only owner can change roles)
-    await this.isMemberOrOwner(tenantId, currentUserId);
+    const currentUserMembership = await this.prisma.tenantMember.findUnique({
+      where: { tenantId_userId: { tenantId, userId: currentUserId } },
+      include: { role: true },
+    });
+    
+    const isOwner = currentUserMembership?.role?.code === 'tenant_owner';
+    // Fallback check for creator if not found in members
+    let isCreator = false;
+    if (!isOwner) {
+       const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId }, select: { createdBy: true } });
+       isCreator = tenant?.createdBy === currentUserId;
+    }
+
+    if (!isOwner && !isCreator) {
+      throw new Error('只有所有者可以修改成员角色');
+    }
+
+    // Validate new role exists and is tenant type
+    const newRole = await this.prisma.role.findUnique({
+      where: { id: newRoleId },
+    });
+    if (!newRole || newRole.type !== 'tenant') {
+      throw new BadRequestException('无效的角色');
+    }
+
+    // Cannot set owner role through this method
+    if (newRole.code === 'tenant_owner') {
+      throw new BadRequestException('不能通过此方法设置所有者角色');
+    }
 
     // Get the member to update
     const memberToUpdate = await this.prisma.tenantMember.findUnique({
@@ -259,6 +372,7 @@ export class TenantService {
           userId: userIdToUpdate,
         },
       },
+      include: { role: true },
     });
 
     if (!memberToUpdate) {
@@ -266,7 +380,7 @@ export class TenantService {
     }
 
     // Cannot change owner role
-    if (memberToUpdate.role === 'owner') {
+    if (memberToUpdate.role?.code === 'tenant_owner') {
       throw new Error('不能修改所有者的角色');
     }
 
@@ -278,13 +392,22 @@ export class TenantService {
           userId: userIdToUpdate,
         },
       },
-      data: { role: newRole },
+      data: { roleId: newRoleId },
+      include: {
+        role: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
     });
   }
 
   /**
    * Public helper to check if a user is owner or admin of a tenant.
-   * Returns true if the user created the tenant or has role 'owner'/'admin'.
+   * Returns true if the user created the tenant or has role 'tenant_owner'/'tenant_admin'.
    */
   async isMemberOrOwner(tenantId: string, userId: string): Promise<boolean> {
     // Check creator
@@ -297,9 +420,30 @@ export class TenantService {
     // Check member role
     const member = await this.prisma.tenantMember.findUnique({
       where: { tenantId_userId: { tenantId, userId } },
-      select: { role: true },
+      include: { role: true },
     });
     if (!member) return false;
-    return ['owner', 'admin'].includes(member.role);
+    return ['tenant_owner', 'tenant_admin'].includes(member.role?.code || '');
+  }
+
+  /**
+   * 获取可用的租户角色列表（用于前端展示）
+   */
+  async getAvailableTenantRoles() {
+    return this.prisma.role.findMany({
+      where: {
+        type: 'tenant',
+        OR: [
+          { tenantId: null }, // 系统预置的租户角色
+        ],
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        isSystem: true,
+      },
+    });
   }
 }

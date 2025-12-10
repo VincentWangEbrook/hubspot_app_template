@@ -6,6 +6,12 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { PermissionService } from '../role/permission.service';
+
+// 扩展 SafeUser 类型，包含 permissions
+export interface SafeUserWithPermissions extends SafeUser {
+  permissions: string[];
+}
 
 @Injectable()
 export class UserService {
@@ -14,6 +20,7 @@ export class UserService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
+    private readonly permissionService: PermissionService,
   ) {}
 
   async register(email: string, password: string, username: string) {
@@ -39,7 +46,13 @@ export class UserService {
         email: email.toLowerCase(),
         password: hash,
         username: username,
-        role: initialRole,
+        userRoles: {
+          create: {
+            role: {
+              connect: { code: initialRole },
+            },
+          },
+        },
       }
     });
 
@@ -48,7 +61,7 @@ export class UserService {
     return { user: safeUser };
   }
 
-  async login(email: string, password: string): Promise<{ user: SafeUser; }> {
+  async login(email: string, password: string): Promise<{ user: SafeUserWithPermissions; }> {
     try {
       const user = await this.prisma.user.findUnique({ where: { email } });
       if (!user) throw new UnauthorizedException('账号或密码错误');
@@ -56,9 +69,17 @@ export class UserService {
       const match = await bcrypt.compare(password, user.password);
       if (!match) throw new UnauthorizedException('账号或密码错误');
 
-      // 解构过滤密码，返回 SafeUser 类型（无 any 断言）
+      // 获取用户的系统权限
+      const permissions = await this.permissionService.getUserPermissions(user.id);
+
+      // 解构过滤密码，返回带 permissions 的用户信息
       const { password: _, ...safeUser } = user;
-      return { user: safeUser };
+      return { 
+        user: {
+          ...safeUser,
+          permissions,
+        }
+      };
 
     } catch (error) {
       console.error('用户登录失败:', error);
@@ -95,7 +116,13 @@ export class UserService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('用户不存在');
     const { password: _omit, ...safeUser } = user;
-    return safeUser;
+
+    // 获取用户的系统权限
+    const permissions = await this.permissionService.getUserPermissions(user.id);
+    return {
+      ...safeUser,
+      permissions,
+    };
   }
 
   async deleteUser(userId: string) {

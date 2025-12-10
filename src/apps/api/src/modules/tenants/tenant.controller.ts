@@ -1,12 +1,19 @@
-import { Controller, Get, Req, Res, Post, Body, ForbiddenException, Param, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Req, Res, Post, Body, ForbiddenException, Param, NotFoundException, BadRequestException, UseGuards } from '@nestjs/common';
 import { FastifyRequest as Request } from 'fastify';
 import { TenantService } from './services/tenant.service';
 import { JwtService } from '@nestjs/jwt';
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { PermissionGuard } from '../role/guards/permission.guard';
+import { RequireTenantPermission } from '../role/guards/permission.decorator';
+import { AuditLogService, AuditActions } from '../role/audit-log.service';
 
 @Controller('api/tenant')
 export class TenantController {
-  constructor(private readonly tenants: TenantService, private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly tenants: TenantService,
+    private readonly jwtService: JwtService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   @Get('my')
   async getMyTenants(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
@@ -20,6 +27,8 @@ export class TenantController {
   }
 
   @Get(':tenantId/members')
+  @UseGuards(PermissionGuard)
+  @RequireTenantPermission('member:read')
   async getTenantMembers(@Param('tenantId') tenantId: string, @Req() req: FastifyRequest, @Res() res: FastifyReply) {
     if (!req.session.user || !req.session.user.id) {
       return res.status(401).send({ success: false, message: '未登录' });
@@ -27,7 +36,6 @@ export class TenantController {
 
     try {
       const members = await this.tenants.getTenantMembers(tenantId);
-      // members contain basic fields; frontend may not have user details but will handle gracefully
       return res.send({ success: true, data: members });
     } catch (error) {
       return res.status(500).send({ success: false, message: (error as Error).message });
@@ -35,8 +43,10 @@ export class TenantController {
   }
 
   @Post('members/addByEmail')
+  @UseGuards(PermissionGuard)
+  @RequireTenantPermission('member:create')
   async addMemberByEmail(
-    @Body() dto: { tenantId: string; email: string; role: 'admin' | 'member' },
+    @Body() dto: { tenantId: string; email: string; roleId: string },
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply
   ) {
@@ -46,7 +56,18 @@ export class TenantController {
 
     try {
       const currentUserId = req.session.user.id;
-      await this.tenants.addMemberByEmail(dto.tenantId, dto.email, dto.role, currentUserId);
+      await this.tenants.addMemberByEmail(dto.tenantId, dto.email, dto.roleId, currentUserId);
+
+      // 记录审计日志
+      await this.auditLogService.logFromRequest(
+        req,
+        AuditActions.MEMBER_ADD,
+        'tenant_member',
+        undefined,
+        dto.tenantId,
+        { email: dto.email, roleId: dto.roleId },
+      );
+
       return res.send({ success: true, message: '成员添加成功' });
     } catch (error) {
       return res.status(400).send({ success: false, message: (error as Error).message });
@@ -54,6 +75,8 @@ export class TenantController {
   }
 
   @Post('members/remove')
+  @UseGuards(PermissionGuard)
+  @RequireTenantPermission('member:delete')
   async removeMember(
     @Body() dto: { tenantId: string; userId: string },
     @Req() req: FastifyRequest,
@@ -66,6 +89,16 @@ export class TenantController {
     try {
       const currentUserId = req.session.user.id;
       await this.tenants.removeMember(dto.tenantId, dto.userId, currentUserId);
+
+      // 记录审计日志
+      await this.auditLogService.logFromRequest(
+        req,
+        AuditActions.MEMBER_REMOVE,
+        'tenant_member',
+        dto.userId,
+        dto.tenantId,
+      );
+
       return res.send({ success: true, message: '成员移除成功' });
     } catch (error) {
       return res.status(400).send({ success: false, message: (error as Error).message });
@@ -73,8 +106,10 @@ export class TenantController {
   }
 
   @Post('members/updateRole')
+  @UseGuards(PermissionGuard)
+  @RequireTenantPermission('member:update')
   async updateMemberRole(
-    @Body() dto: { tenantId: string; userId: string; role: 'admin' | 'member' | 'owner' },
+    @Body() dto: { tenantId: string; userId: string; roleId: string },
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply
   ) {
@@ -84,7 +119,18 @@ export class TenantController {
 
     try {
       const currentUserId = req.session.user.id;
-      await this.tenants.updateMemberRole(dto.tenantId, dto.userId, dto.role, currentUserId);
+      await this.tenants.updateMemberRole(dto.tenantId, dto.userId, dto.roleId, currentUserId);
+
+      // 记录审计日志
+      await this.auditLogService.logFromRequest(
+        req,
+        AuditActions.MEMBER_ROLE_CHANGE,
+        'tenant_member',
+        dto.userId,
+        dto.tenantId,
+        { newRoleId: dto.roleId },
+      );
+
       return res.send({ success: true, message: '角色更新成功' });
     } catch (error) {
       return res.status(400).send({ success: false, message: (error as Error).message });

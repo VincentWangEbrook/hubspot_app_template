@@ -11,6 +11,7 @@ import { LineModule } from './modules/line/line.module';
 import { LineSyncModule } from './modules/line-sync/line-sync.module';
 import { UserModule } from './modules/user/user.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { RoleModule } from './modules/role/role.module';
 import { RateLimiterModule } from 'nestjs-rate-limiter';
 import { rateLimiterOptions } from './rate-limiter.config';
 import { SessionExpireMiddleware } from './middlewares/session-expire.middleware';
@@ -33,6 +34,7 @@ import { EmailModule } from './modules/email/email.module';
     PrismaModule,
     EmailModule,
     CommonSecurityModule,
+    RoleModule,
     TenantModule,
     AuthModule,
     SubscriptionModule,

@@ -139,6 +139,8 @@ export function DialogTrigger({
   children,
   disabled = false,
 }: DialogTriggerProps) {
+  const triggerRef = useRef<HTMLElement | null>(null);
+  
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (disabled) return;
     e.stopPropagation();
@@ -275,6 +277,3 @@ export function DialogFooter({ className, children, id }: DialogFooterProps) {
     </div>
   );
 }
-
-// 全局 triggerRef（使用 MutableRefObject）
-const triggerRef = useRef<HTMLElement | null>(null) as MutableRefObject<HTMLElement | null>;

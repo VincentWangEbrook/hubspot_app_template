@@ -14,6 +14,7 @@ declare module 'fastify' {
       id: string;
       username: string;
       email: string;
+      permissions: string[];
       lastActiveTime: number;
     };
   }
