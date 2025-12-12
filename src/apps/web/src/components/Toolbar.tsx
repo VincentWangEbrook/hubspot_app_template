@@ -2,13 +2,12 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { User, LogIn, LogOut, Menu, X, ChevronDown } from 'lucide-react';
+import { User, LogIn, LogOut, Menu, X, ChevronDown, Sparkles } from 'lucide-react';
 import TenantSwitcher from './TenantSwitcher';
 import HubspotConnectButton from './HubSpotConnectButton';
 import { UserInfo } from '@/types';
 import { useUser } from '@/context/UserContext';
 
-// 类型扩展：添加初始化状态
 type UserState = UserInfo | null;
 
 interface NavbarProps {
@@ -20,7 +19,7 @@ export default function Toolbar({
   className = '',
   userRole = 'user',
 }: NavbarProps) {
-  const { user: contextUser, logout} = useUser();
+  const { user: contextUser, logout } = useUser();
   const router = useRouter();
   const navbarRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -29,7 +28,8 @@ export default function Toolbar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // 初始化加载状态
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasScrolled, setHasScrolled] = useState(false);
 
   useEffect(() => {
     const initUserState = async () => {
@@ -44,98 +44,77 @@ export default function Toolbar({
     initUserState();
   }, [contextUser]);
 
-  // 监听窗口大小变化，固化 Navbar 高度（避免布局位移）
+  // Scroll detection for shadow effect
   useEffect(() => {
-    if (navbarRef.current) {
-      // 固化 Navbar 高度，防止加载过程中高度变化
-      navbarRef.current.style.height = `${navbarRef.current.offsetHeight}px`;
-    }
-
-    const handleResize = () => {
-      if (navbarRef.current) {
-        navbarRef.current.style.height = 'auto';
-        navbarRef.current.style.height = `${navbarRef.current.offsetHeight}px`;
-      }
+    const handleScroll = () => {
+      setHasScrolled(window.scrollY > 10);
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 全局点击事件监听：点击外部关闭菜单
+  // Click outside to close user menu
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      // 若菜单已展开，且点击目标不在菜单内部（包含菜单触发按钮）
       if (isUserMenuOpen && userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setIsUserMenuOpen(false);
       }
     };
 
-    // 绑定全局点击事件（捕获阶段，避免被内部事件阻止）
     document.addEventListener('mousedown', handleClickOutside, true);
-
-    // 组件卸载时移除事件监听（避免内存泄漏）
     return () => {
       document.removeEventListener('mousedown', handleClickOutside, true);
     };
-  }, [isUserMenuOpen]); // 仅当菜单状态变化时重新绑定
+  }, [isUserMenuOpen]);
 
-  // 处理登录
   const handleLogin = () => {
     router.push('/login');
     setIsMobileMenuOpen(false);
   };
 
-  // 处理退出登录
   const handleLogout = async () => {
-    setIsLoggingOut(true); // 开启加载状态，禁用按钮防止重复点击
+    setIsLoggingOut(true);
     try {
-      // 调用退出登录接口（优化：使用正确的请求方法，空数据可省略或传空对象）
       await logout();
-
       setUser(null);
-      // 跳转到登录页，清空路由历史（避免回退）
       router.push('/login');
-      router.refresh(); // 刷新页面，确保状态同步
+      router.refresh();
     } catch (err) {
       console.error('退出登录失败：', (err as Error).message);
-      // 错误处理：提示用户重试（可添加 Toast 组件）
       alert('退出登录失败，请重试');
     } finally {
-      setIsLoggingOut(false); // 关闭加载状态
-      setIsUserMenuOpen(false); // 关闭用户菜单
+      setIsLoggingOut(false);
+      setIsUserMenuOpen(false);
     }
   };
 
-  // 租户切换回调
   const handleTenantChange = (tenantId: string) => {
     console.log('切换到 HubSpot 账户:', tenantId);
   };
 
-  // 优化版骨架屏（模拟真实组件结构，视觉更统一）
   const NavSkeleton = ({ type = 'desktop' }: { type: 'desktop' | 'mobile' | 'user' }) => {
     switch (type) {
       case 'desktop':
         return (
-          <div className="flex items-center gap-2">
-            <div className="animate-pulse bg-gray-100 rounded-md w-[180px] md:w-[220px] h-9" />
-            <div className="animate-pulse bg-gray-100 rounded-md w-20 h-9" />
+          <div className="flex items-center gap-3">
+            <div className="animate-pulse bg-white/20 rounded-lg w-[200px] h-10" />
+            <div className="animate-pulse bg-white/20 rounded-lg w-24 h-10" />
           </div>
         );
       case 'mobile':
         return (
           <div className="space-y-3">
-            <div className="animate-pulse bg-gray-100 rounded h-5 w-32" />
-            <div className="animate-pulse bg-gray-100 rounded-md w-full h-9" />
-            <div className="animate-pulse bg-gray-100 rounded-md w-full h-9" />
+            <div className="animate-pulse bg-gray-200 rounded h-5 w-32" />
+            <div className="animate-pulse bg-gray-200 rounded-lg w-full h-10" />
+            <div className="animate-pulse bg-gray-200 rounded-lg w-full h-10" />
           </div>
         );
       case 'user':
         return (
-          <div className="flex items-center">
-            <div className="animate-pulse bg-gray-100 rounded-full h-8 w-8" />
-            <div className="ml-2 animate-pulse bg-gray-100 rounded h-5 w-24" />
-            <div className="ml-1 animate-pulse bg-gray-100 rounded h-4 w-4" />
+          <div className="flex items-center gap-2">
+            <div className="animate-pulse bg-white/20 rounded-full h-9 w-9" />
+            <div className="animate-pulse bg-white/20 rounded h-5 w-20" />
           </div>
         );
       default:
@@ -143,199 +122,188 @@ export default function Toolbar({
     }
   };
 
+  const getInitials = () => {
+    if (!user) return 'U';
+    const username = user.username || '';
+    return username.slice(0, 2).toUpperCase() || 'U';
+  };
+
   return (
     <nav
       ref={navbarRef}
-      className={`bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 transition-all duration-200 ${className}`}
+      className={`
+        fixed top-0 left-0 right-0 z-50 
+        transition-all duration-300
+        ${hasScrolled 
+          ? 'bg-white/80 backdrop-blur-xl shadow-lg border-b border-blue-100' 
+          : 'bg-gradient-to-r from-white via-blue-50/30 to-indigo-50/30 backdrop-blur-sm border-b border-transparent'
+        }
+        ${className}
+      `}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* 左侧 Logo 和导航链接 */}
-          <div className="flex items-center">
-            <Link href="/" className="shrink-0 flex items-center">
-              <span className="text-xl font-bold text-blue-600">HubSpot</span>
-            </Link>
-          </div>
-
-          {/* 右侧：租户切换 + HubSpot 关联按钮 + 用户操作 */}
-          <div className="flex items-center">
-            {/* 租户切换 + 关联按钮（桌面端） */}
-            <div className="hidden sm:flex items-center gap-2 mr-4">
-              {isLoading ? (
-                <NavSkeleton type="desktop" />
-              ) : user ? (
-                <>
-                  <TenantSwitcher
-                    className="w-[180px] md:w-[220px]"
-                    onTenantChange={handleTenantChange}
-                    placeholder="Select HubSpot Account"
-                  />
-                  <HubspotConnectButton size="md" />
-                </>
-              ) : null}
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="relative">
+              <Sparkles className="w-6 h-6 text-blue-600 group-hover:text-blue-700 transition-colors" />
+              <div className="absolute inset-0 bg-blue-400 blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
             </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              HubSpot
+            </span>
+          </Link>
 
-            {/* 登录/用户菜单（桌面端） */}
-            <div className="hidden sm:flex sm:items-center" ref={userMenuRef}>
-              {isLoading ? (
-                <div className="ml-3 relative">
-                  <NavSkeleton type="user" />
-                </div>
-              ) : user ? (
-                <div className="ml-3 relative">
-                  <div
+          {/* Desktop: Tenant Switcher + Connect Button + User Menu */}
+          <div className="hidden md:flex items-center gap-3">
+            {isLoading ? (
+              <NavSkeleton type="desktop" />
+            ) : user ? (
+              <>
+                <TenantSwitcher
+                  className="w-[200px]"
+                  onTenantChange={handleTenantChange}
+                  placeholder="Select HubSpot Account"
+                />
+                <HubspotConnectButton size="md" />
+                
+                {/* User Menu */}
+                <div className="relative" ref={userMenuRef}>
+                  <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-colors"
-                    aria-expanded={isUserMenuOpen}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/60 transition-all duration-200 group"
                   >
-                    <User size={20} className="text-gray-600" />
-                    <span
-                      className="ml-2 text-sm font-medium text-gray-700 hidden md:inline-block w-24 truncate text-ellipsis whitespace-nowrap"
-                      title={user.username}
-                    >
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shadow-lg group-hover:shadow-xl transition-shadow">
+                      {getInitials()}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 max-w-24 truncate">
                       {user.username}
                     </span>
-                    <ChevronDown size={16} className="ml-1 text-gray-500 shrink-0" />
-                  </div>
-                  {/* 用户下拉菜单（添加淡入动画） */}
+                    <ChevronDown 
+                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+                        isUserMenuOpen ? 'rotate-180' : ''
+                      }`} 
+                    />
+                  </button>
+
+                  {/* Dropdown Menu */}
                   {isUserMenuOpen && (
-                    <div
-                      className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 py-1 z-50 animate-fadeIn"
-                      style={{ animationDuration: '150ms' }}
-                    >
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl ring-1 ring-black/5 py-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-sm font-semibold text-gray-900">{user.username}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{user.email || 'User Account'}</p>
+                      </div>
+                      
                       <Link
                         href="/settings/profile"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
-                        Profile
+                        个人资料
                       </Link>
                       <Link
                         href="/settings/security"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                        className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
-                        Security
+                        安全设置
                       </Link>
-                      <button
-                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition-colors"
-                        onClick={handleLogout}
-                        disabled={isLoggingOut}
-                      >
-                        <LogOut size={14} className="inline mr-1" /> Sign Out
-                      </button>
+                      
+                      <div className="border-t border-gray-100 mt-2 pt-2">
+                        <button
+                          className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                          onClick={handleLogout}
+                          disabled={isLoggingOut}
+                        >
+                          <LogOut size={16} />
+                          {isLoggingOut ? '退出中...' : '退出登录'}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
-              ) : (
-                <button
-                  onClick={handleLogin}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                >
-                  <LogIn size={16} className="mr-2" /> Sign In
-                </button>
-              )}
-            </div>
-
-            {/* 移动端菜单按钮 */}
-            <div className="sm:hidden flex items-center">
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors"
-                aria-expanded={isMobileMenuOpen}
-              >
-                {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 移动端菜单（优化动画和加载状态） */}
-      {isMobileMenuOpen && (
-        <div
-          className="sm:hidden bg-white border-b border-gray-200 animate-slideDown"
-          style={{ animationDuration: '200ms' }}
-          onClick={(e) => {
-            // 点击菜单内容不关闭，仅点击空白处关闭
-            if (e.target === e.currentTarget) setIsMobileMenuOpen(false);
-          }}
-        >
-          <div className="px-4 py-3 border-b border-gray-200">
-            {isLoading ? (
-              <NavSkeleton type="mobile" />
-            ) : user ? (
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Select HubSpot Account</label>
-                <TenantSwitcher className="w-full" onTenantChange={handleTenantChange} />
-                <HubspotConnectButton size="md" className="w-full" />
-              </div>
+              </>
             ) : (
-              <div className="h-16 flex items-center justify-center">
-                <button
-                  onClick={handleLogin}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  <LogIn size={16} className="mr-2" /> Sign In
-                </button>
-              </div>
+              <button
+                onClick={handleLogin}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
+              >
+                <LogIn size={18} />
+                登录
+              </button>
             )}
           </div>
 
-          {/* 移动端导航链接 */}
-          {!isLoading && user && (
-            <div className="pt-2 pb-3 space-y-1">
-              <Link
-                href="/settings/profile"
-                className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-500 hover:border-blue-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Profile
-              </Link>
-            </div>
-          )}
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-2 rounded-lg hover:bg-white/60 transition-colors"
+          >
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+      </div>
 
-          {/* 移动端用户信息（仅登录状态） */}
-          {!isLoading && user && (
-            <div className="pt-4 pb-3 border-t border-gray-200">
-              <div className="flex items-center px-4">
-                <div className="shrink-0">
-                    <User size={24} className="text-gray-600" />
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden bg-white border-t border-gray-100 shadow-xl animate-in slide-in-from-top duration-200">
+          <div className="px-4 py-4">
+            {isLoading ? (
+              <NavSkeleton type="mobile" />
+            ) : user ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-semibold shadow-lg">
+                    {getInitials()}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">{user.username}</p>
+                    <p className="text-sm text-gray-500">{user.email || 'User'}</p>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <LogOut size={20} />
+                  </button>
                 </div>
-                <div className="ml-3">
-                  <div className="text-base font-medium text-gray-800">{user.username}</div>
-                  <div className="text-sm font-medium text-gray-500">{user.role || 'User'}</div>
+
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">HubSpot 账户</label>
+                  <TenantSwitcher className="w-full" onTenantChange={handleTenantChange} />
+                  <HubspotConnectButton size="md" className="w-full" />
                 </div>
-                <button
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="ml-auto text-red-600 hover:text-red-700"
-                >
-                  <LogOut size={20} />
-                </button>
+
+                <div className="pt-2 space-y-1">
+                  <Link
+                    href="/settings/profile"
+                    className="block px-4 py-2.5 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    个人资料
+                  </Link>
+                  <Link
+                    href="/settings/security"
+                    className="block px-4 py-2.5 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    安全设置
+                  </Link>
+                </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <button
+                onClick={handleLogin}
+                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium shadow-lg"
+              >
+                <LogIn size={18} />
+                登录
+              </button>
+            )}
+          </div>
         </div>
       )}
-
-      {/* 全局动画样式（仅在该组件内生效） */}
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-5px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadeIn {
-          animation-name: fadeIn;
-        }
-        .animate-slideDown {
-          animation-name: slideDown;
-        }
-      `}</style>
     </nav>
   );
 }

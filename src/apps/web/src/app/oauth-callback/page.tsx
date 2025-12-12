@@ -3,8 +3,8 @@
 import React, { useEffect } from 'react';
 // 1. 替换路由包：从 next/navigation 导入 useRouter
 import { useRouter } from 'next/navigation'; 
-import axios from 'axios';
 import { apiFetch } from '../../lib/apiFetch';
+import { getLastTenantId } from '@/utils/tenantUrl';
 
 export default function Callback() {
   const router = useRouter(); // 2. 初始化 App Router 的路由实例
@@ -16,22 +16,21 @@ export default function Callback() {
       const state = params.get('state');
       
       if (!code) {
-        router.push('/'); // 3. 跳转逻辑不变（App Router 的 push 支持字符串路径）
+        // 无授权码，重定向到租户选择或最后访问的租户
+        const lastTenantId = getLastTenantId();
+        router.push(lastTenantId ? `/${lastTenantId}/hubspot` : '/settings/tenants');
         return;
       }
 
       try {
-        const res = await apiFetch('auth/hubspot', { data: {code, tenantId: state }});
-        
-        if (res.success) {
-          router.push('/dashboard');
-        } else {
-          router.push('/connect-hubspot');
-        }
+        await apiFetch('auth/hubspot', { data: {code, tenantId: state }});
       } catch (err) {
         console.error('HubSpot 授权失败:', err);
-        router.push('/connect-hubspot');
       }
+
+      // 授权完成后，重定向到最后访问的租户或租户选择页
+      const lastTenantId = getLastTenantId();
+      router.push(lastTenantId ? `/${lastTenantId}/hubspot` : '/settings/tenants');
     }
 
     handle();

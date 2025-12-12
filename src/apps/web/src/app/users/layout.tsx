@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react';
-import Sidebar from '../../components/Navbar';
 
 export default function UsersLayout({ children }: { children: React.ReactNode }) {
   return (

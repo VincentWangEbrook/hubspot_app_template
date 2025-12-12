@@ -96,14 +96,32 @@ export function Dialog({
     return () => document.removeEventListener('keydown', handleEsc);
   }, [open, closeDialog, closeOnEsc, disabled]);
 
-  // 禁止页面滚动
+  // 禁止页面滚动，同时保持滚动位置
   useEffect(() => {
     if (open) {
+      // 保存当前滚动位置
+      const scrollY = window.scrollY;
+      const scrollX = window.scrollX;
+      
+      // 禁止滚动
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.left = `-${scrollX}px`;
+      document.body.style.width = '100%';
+      
+      return () => {
+        // 恢复滚动
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.width = '';
+        
+        // 恢复滚动位置
+        window.scrollTo(scrollX, scrollY);
+      };
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [open]);
 
   if (!open || disabled) return null;
@@ -119,7 +137,7 @@ export function Dialog({
       />
       <div
         ref={dialogRef}
-        className="relative bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto transform transition-all"
+        className="relative bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] transform transition-all flex flex-col"
         tabIndex={-1}
         aria-modal="true"
         role="dialog"
@@ -207,10 +225,8 @@ export function DialogContent({
   dismissible = true,
   style,
   id,
-}: DialogContentProps) {
-  const DialogContext = React.createContext<() => void>(() => {});
-  const closeDialog = React.useContext(DialogContext);
-
+  onClose,
+}: DialogContentProps & { onClose?: () => void }) {
   return (
     <div 
       className={`flex flex-col ${className || ''}`} 
@@ -218,11 +234,14 @@ export function DialogContent({
       style={style}
       id={id}
     >
-      {dismissible && (
+      {dismissible && onClose && (
         <button
           type="button"
-          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 text-gray-500"
-          onClick={closeDialog}
+          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 text-gray-500 z-10"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
           aria-label="关闭对话框"
         >
           <X size={18} />

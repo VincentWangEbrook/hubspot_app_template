@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, FormEvent } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useTenant } from '@/context/TenantContext';
 import { apiFetch } from '@/lib/apiFetch';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -28,8 +29,9 @@ export default function LineChatPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { socket, isConnected } = useSocket();
-  const tenantId = searchParams.get('tenantId');
+  const { tenantId } = useTenant(); // 使用 useTenant hook 获取租户ID
   const channelId = searchParams.get('channelId');
+  
   const [messages, setMessages] = useState<LineMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(true);

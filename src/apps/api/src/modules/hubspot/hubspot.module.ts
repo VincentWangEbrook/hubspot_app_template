@@ -13,9 +13,14 @@ import { HubspotService } from './services/hubspot.service';
   imports: [
     TenantModule, 
     SharedModule, 
-    BullModule.registerQueue({
-      name: 'line-sync',
-    }),
+    BullModule.registerQueue(
+      {
+        name: 'line-sync',
+      },
+      {
+        name: 'hubspot-sync',
+      },
+    ),
   ],
   controllers: [HubspotController, HubspotWebhookController],
   providers: [JwtService, MultiChannelService, HubspotClientFactory, HubspotService],

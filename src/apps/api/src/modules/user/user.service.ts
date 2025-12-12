@@ -72,6 +72,10 @@ export class UserService {
       // 获取用户的系统权限
       const permissions = await this.permissionService.getUserPermissions(user.id);
 
+      //const tenant = await this.prisma.tenant.findUnique({ where: { createdBy: user.id } });
+
+      //const tenantPermissions = await this.permissionService.getUserTenantPermissions(user.id, );
+
       // 解构过滤密码，返回带 permissions 的用户信息
       const { password: _, ...safeUser } = user;
       return { 

@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -18,23 +18,22 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * 切换 schema，返回一个新的 PrismaService 实例（多租户）
-   * 注意：只能在单次请求/事务中使用，避免全局污染
+   * 切换到指定 schema 并执行回调
+   * 使用事务和 SET LOCAL search_path 防止竞态条件
    */
-  async useTenantSchema<T>(schema: string, callback: (prisma: PrismaClient) => Promise<T>): Promise<T> {
-    await this.$executeRawUnsafe(`SET search_path TO ${schema};`);
-    try {
-      return await callback(this);
-    } finally {
-      // 切回默认 schema（可选）
-      await this.$executeRawUnsafe(`SET search_path TO public;`);
-    }
+  async useTenantSchema<T>(schemaName: string, callback: (prisma: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this.$transaction(async (tx) => {
+      // Use local search_path for this transaction only
+      // usage of double quotes handles special characters
+      await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schemaName}", public;`);
+      return callback(tx);
+    });
   }
 
   /**
    * 通用方法：根据 tenantId 切换到租户 schema 并执行回调
    */
-  async withTenant<T>(tenantId: string, callback: (prisma: PrismaClient) => Promise<T>): Promise<T> {
+  async withTenant<T>(tenantId: string, callback: (prisma: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     // 1. 查租户元数据
     const tenant = await this.tenant.findUnique({
       where: { id: tenantId },
@@ -44,8 +43,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     if (!tenant) throw new Error(`租户 ${tenantId} 不存在`);
 
     // 2. 切换 schema 并执行回调
-    // Sanitize tenantId to prevent SQL injection (though uuid is safe, good practice)
-    const schemaName = `tenant_${tenantId.replace(/[^a-zA-Z0-9-]/g, '')}`;
+    // Sanitize tenantId to prevent SQL injection
+    const safeId = tenantId.replace(/[^a-zA-Z0-9-]/g, '');
+    const schemaName = `tenant_${safeId}`;
     return this.useTenantSchema(schemaName, callback);
   }
 }

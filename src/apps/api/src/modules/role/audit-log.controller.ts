@@ -2,6 +2,7 @@ import { Controller, Get, Query, UseGuards, Param } from '@nestjs/common';
 import { AuditLogService, AuditLogDto, AuditLogQueryOptions } from './audit-log.service';
 import { PermissionGuard } from './guards/permission.guard';
 import { RequirePermission, RequireTenantPermission } from './guards/permission.decorator';
+import { AuditLogQueryDto } from './dto/audit-log-query.dto';
 
 @Controller('api/audit-logs')
 @UseGuards(PermissionGuard)
@@ -15,14 +16,7 @@ export class AuditLogController {
   @Get()
   @RequirePermission('audit:read')
   async query(
-    @Query('userId') userId?: string,
-    @Query('tenantId') tenantId?: string,
-    @Query('resource') resource?: string,
-    @Query('action') action?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
+    @Query() queryDto: AuditLogQueryDto
   ): Promise<{
     success: boolean;
     data: AuditLogDto[];
@@ -34,14 +28,14 @@ export class AuditLogController {
     };
   }> {
     const options: AuditLogQueryOptions = {
-      userId,
-      tenantId,
-      resource,
-      action,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-      page: page ? parseInt(page, 10) : 1,
-      pageSize: pageSize ? parseInt(pageSize, 10) : 20,
+      userId: queryDto.userId,
+      tenantId: queryDto.tenantId,
+      resource: queryDto.resource,
+      action: queryDto.action,
+      startDate: queryDto.startDate ? new Date(queryDto.startDate) : undefined,
+      endDate: queryDto.endDate ? new Date(queryDto.endDate) : undefined,
+      page: queryDto.page ? parseInt(queryDto.page, 10) : 1,
+      pageSize: queryDto.pageSize ? parseInt(queryDto.pageSize, 10) : 20,
     };
 
     const result = await this.auditLogService.query(options);

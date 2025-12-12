@@ -32,7 +32,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
-  ],
+, "src/app/[tenantId]/layout.tsx--", "src/app/[tenantId]/hubspot/layout.tsx--", "src/app/layout.tsx", ],
   "exclude": [
     "node_modules"
   ]

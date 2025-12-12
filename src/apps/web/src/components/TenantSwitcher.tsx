@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronDown, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronDown, Loader2, AlertCircle, RefreshCw, Building2, CheckCircle2 } from 'lucide-react';
 import { apiFetch, ApiResponse } from '@/lib/apiFetch';
+import { useTenant } from '@/context/TenantContext';
+import { getLastTenantId } from '@/utils/tenantUrl';
 
 export type Tenant = {
-  id: string; // HubSpot 账户ID（租户ID）
-  name: string; // HubSpot 账户名称
-  desc?: string; // 描述（可选）
-  avatar?: string; // 账户头像（可选，默认用 HubSpot Logo）
+  id: string;
+  name: string;
+  desc?: string;
+  avatar?: string;
 };
 
 interface TenantSwitcherProps {
@@ -18,12 +21,10 @@ interface TenantSwitcherProps {
   disabled?: boolean;
 }
 
-// 真实接口请求：获取用户关联的所有 HubSpot 账户（租户）
 const fetchTenantList = async (): Promise<ApiResponse<Tenant[]>> => {
   try {
     const res = await apiFetch<Tenant[]>('tenant/my');
     if (res.success) {
-      // 适配 HubSpot 账户数据格式（接口返回字段映射）
       const hubspotTenants = res.data?.map(tenant => ({
         id: tenant.id,
         name: tenant.name || `HubSpot_${tenant.id.slice(0, 6)}`,
@@ -49,8 +50,10 @@ export default function TenantSwitcher({
   const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
+  const { switchTenant } = useTenant();
 
-  // 加载/刷新租户列表（核心方法）
   const loadTenantList = useCallback(async () => {
     if (disabled) return;
     setIsLoading(true);
@@ -61,11 +64,9 @@ export default function TenantSwitcher({
         const validTenants = res.data.filter(Boolean);
         setTenants(validTenants);
 
-        // 首次加载：无活跃租户则默认选中第一个
         if (!activeTenantId && validTenants.length > 0) {
           const defaultId = validTenants[0].id;
-          localStorage.setItem('activeTenantId', defaultId);
-          loadActiveTenant(true);
+          setActiveTenantId(defaultId);
         }
       } else {
         setError(res.message || '获取账户列表失败');
@@ -75,154 +76,152 @@ export default function TenantSwitcher({
     } finally {
       setIsLoading(false);
     }
-  }, [disabled, activeTenantId]);
+  }, [disabled, activeTenantId, router]);
 
-  // 加载活跃租户（本地存储同步）
-  const loadActiveTenant = useCallback((isInitiative = false) => {
-    const storedId = localStorage.getItem('activeTenantId');
+  const loadActiveTenant = useCallback(() => {
+    const storedId = getLastTenantId();
     if (storedId && storedId !== activeTenantId) {
       setActiveTenantId(storedId);
-      if (isInitiative) {
-        onTenantChange?.(storedId);
-        window.dispatchEvent(new Event('tenant:changed'));
-      }
     }
   }, [activeTenantId]);
 
-  // 初始化加载 + 监听授权成功事件刷新列表
   useEffect(() => {
     loadTenantList();
-    const storedId = localStorage.getItem('activeTenantId');
-    if (storedId) loadActiveTenant(false);
+    loadActiveTenant();
 
-    // 监听 HubSpot 授权完成事件（来自 ConnectButton）
     const handleTenantRefresh = () => {
-      loadTenantList(); // 重新请求账户列表
+      loadTenantList();
     };
     window.addEventListener('tenant:refresh', handleTenantRefresh);
 
-    // 监听全局租户切换事件
-    const handleGlobalChange = () => {
-      loadActiveTenant(false);
-    };
-    window.addEventListener('tenant:changed', handleGlobalChange);
-
-    // 清理监听
     return () => {
       window.removeEventListener('tenant:refresh', handleTenantRefresh);
-      window.removeEventListener('tenant:changed', handleGlobalChange);
     };
   }, [loadTenantList, loadActiveTenant]);
 
-  // 主动切换租户
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newId = e.target.value;
+  const handleChange = useCallback((newId: string) => {
     if (newId && newId !== activeTenantId) {
-      localStorage.setItem('activeTenantId', newId);
-      loadActiveTenant(true);
+      setActiveTenantId(newId);
+      router.push(`/${newId}/hubspot`);
+      onTenantChange?.(newId);
+      setIsOpen(false);
     }
-  }, [activeTenantId, loadActiveTenant]);
+  }, [activeTenantId, router, onTenantChange]);
 
-  // 当前活跃租户
   const activeTenant = useMemo(
     () => tenants.find(t => t.id === activeTenantId) || null,
     [tenants, activeTenantId]
   );
 
-  // 手动刷新（错误状态下可用）
   const handleRefresh = () => loadTenantList();
 
-  // 禁用状态
   if (disabled) {
     return (
-      <div className={`relative inline-flex items-center ${className}`}>
-        <select
-          disabled
-          className="w-full pl-3 pr-10 py-1.5 text-sm rounded border border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed appearance-none"
-        >
-          <option>{placeholder}</option>
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+      <div className={`relative ${className}`}>
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-500 cursor-not-allowed">
+          <Building2 size={16} />
+          <span className="text-sm flex-1 truncate">{placeholder}</span>
+          <ChevronDown size={16} className="text-gray-400" />
+        </div>
       </div>
     );
   }
 
-  // 加载中状态
   if (isLoading) {
     return (
-      <div className={`relative inline-flex items-center ${className}`}>
-        <select
-          disabled
-          className="w-full pl-3 pr-10 py-1.5 text-sm rounded border border-gray-300 bg-gray-50 text-gray-500 cursor-wait appearance-none"
-        >
-          <option>加载 HubSpot 账户中...</option>
-        </select>
-        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 animate-spin" />
+      <div className={`relative ${className}`}>
+        <div className="flex items-center gap-2 px-3 py-2 bg-white/50 border border-blue-200 rounded-lg">
+          <Loader2 size={16} className="animate-spin text-blue-600" />
+          <span className="text-sm text-gray-600 flex-1">加载中...</span>
+        </div>
       </div>
     );
   }
 
-  // 错误状态
   if (error) {
     return (
-      <div className={`relative inline-flex items-center ${className}`}>
-        <select
-          disabled
-          className="w-full pl-3 pr-16 py-1.5 text-sm rounded border border-red-300 bg-red-50 text-red-700 cursor-not-allowed appearance-none"
-        >
-          <option>{error}</option>
-        </select>
-        <button
-          onClick={handleRefresh}
-          className="absolute right-8 top-1/2 -translate-y-1/2 text-red-500 hover:text-red-700"
-          aria-label="刷新"
-        >
-          <RefreshCw size={16} />
-        </button>
-        <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-red-500 pointer-events-none" />
+      <div className={`relative ${className}`}>
+        <div className="flex items-center gap-2 px-3 py-2 bg-red-50 border border-red-300 rounded-lg">
+          <AlertCircle size={16} className="text-red-600 flex-shrink-0" />
+          <span className="text-sm text-red-700 flex-1 truncate">{error}</span>
+          <button
+            onClick={handleRefresh}
+            className="p-1 hover:bg-red-100 rounded transition-colors"
+            aria-label="刷新"
+          >
+            <RefreshCw size={14} className="text-red-600" />
+          </button>
+        </div>
       </div>
     );
   }
 
-  // 无账户状态（引导关联）
   if (tenants.length === 0) {
     return (
-      <div className={`relative inline-flex items-center ${className}`}>
-        <select
-          disabled
-          className="w-full pl-3 pr-10 py-1.5 text-sm rounded border border-gray-300 bg-gray-50 text-gray-500 cursor-not-allowed appearance-none"
-        >
-          <option>暂无关联的 HubSpot 账户</option>
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+      <div className={`relative ${className}`}>
+        <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-300 rounded-lg">
+          <AlertCircle size={16} className="text-orange-600" />
+          <span className="text-sm text-orange-700 flex-1">暂无关联账户</span>
+        </div>
       </div>
     );
   }
 
-  // 正常状态（显示 HubSpot 账户列表）
   return (
-    <div className={`relative inline-flex items-center ${className}`}>
-      <select
-        value={activeTenantId ?? ''}
-        onChange={handleChange}
-        className="w-full pl-3 pr-10 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-900 focus:border-blue-500 focus:ring-blue-500 outline-none appearance-none hover:border-gray-400 transition-colors"
-        aria-label="切换 HubSpot 账户"
+    <div className={`relative ${className}`}>
+      {/* Trigger Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:border-blue-400 rounded-lg transition-all duration-200 hover:shadow-md group"
       >
-        {tenants.map(tenant => (
-        <option
-          key={tenant.id}
-          value={tenant.id}
-          // 用 title 属性显示完整信息（替代 span 描述）
-          title={tenant.desc ? `${tenant.name} - ${tenant.desc}` : tenant.name}
-          // 自定义类名，通过伪元素添加图标
-          className="py-1 pl-8 relative" // pl-8 预留图标空间
-        >
-          {/* 仅保留纯文本，移除 img 和 span 标签 */}
-          {tenant.name}
-        </option>
-      ))}
-      </select>
-      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+        <div className="w-6 h-6 rounded bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0">
+          <Building2 size={14} className="text-white" />
+        </div>
+        <span className="text-sm font-medium text-gray-900 flex-1 truncate text-left">
+          {activeTenant?.name || placeholder}
+        </span>
+        <ChevronDown 
+          size={16} 
+          className={`text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+        />
+      </button>
+
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Menu */}
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl ring-1 ring-black/5 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 max-h-80 overflow-y-auto">
+            {tenants.map(tenant => (
+              <button
+                key={tenant.id}
+                onClick={() => handleChange(tenant.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-blue-50 transition-colors ${
+                  tenant.id === activeTenantId ? 'bg-blue-50' : ''
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                  <Building2 size={16} className="text-white" />
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{tenant.name}</p>
+                  {tenant.desc && (
+                    <p className="text-xs text-gray-500 truncate">{tenant.desc}</p>
+                  )}
+                </div>
+                {tenant.id === activeTenantId && (
+                  <CheckCircle2 size={18} className="text-blue-600 flex-shrink-0" />
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

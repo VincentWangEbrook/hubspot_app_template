@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { Plus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -38,6 +39,9 @@ export default function RolesPage() {
 
   // 筛选
   const [filterType, setFilterType] = useState<'all' | 'system' | 'tenant'>('all');
+
+  // 对话框内容滚动容器的 ref
+  const dialogContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
@@ -217,7 +221,13 @@ export default function RolesPage() {
               <SelectItem value="tenant">租户级</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={openCreateDialog}>创建角色</Button>
+          <Button 
+            onClick={openCreateDialog}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <Plus size={18} />
+            <span>创建角色</span>
+          </Button>
         </div>
       </div>
 
@@ -301,40 +311,47 @@ export default function RolesPage() {
 
       {/* 创建/编辑对话框 */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingRole ? '编辑角色' : '创建角色'}</DialogTitle>
-            <DialogDescription>
-              {editingRole ? '修改角色信息和权限' : '创建新的角色并分配权限'}
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col" onClose={() => setDialogOpen(false)}>
+          <DialogHeader className="pb-4 flex-shrink-0">
+            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
+              {editingRole ? '编辑角色' : '创建新角色'}
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              {editingRole ? '修改角色信息和权限配置' : '填写角色信息并分配相应权限'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div 
+            ref={dialogContentRef} 
+            className="flex-1 overflow-y-auto px-6 py-2 space-y-5"
+            style={{ scrollBehavior: 'auto' }}
+          >
             {!editingRole && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    角色代码
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    角色代码 <span className="text-red-500">*</span>
                   </label>
                   <Input
                     placeholder="例如: custom_admin"
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                    className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500">
                     只能包含小写字母、数字和下划线
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    角色类型
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    角色类型 <span className="text-red-500">*</span>
                   </label>
                   <Select
                     value={formData.type}
                     onValueChange={(v) => setFormData({ ...formData, type: v as any })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-gray-300">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -343,79 +360,99 @@ export default function RolesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </>
+              </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                角色名称
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
+                角色名称 <span className="text-red-500">*</span>
               </label>
               <Input
                 placeholder="例如: 自定义管理员"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">
                 描述
               </label>
               <Input
                 placeholder="角色描述（可选）"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                权限分配
-              </label>
-              <div className="border rounded-lg p-4 max-h-64 overflow-y-auto space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-semibold text-gray-700">
+                  权限分配 <span className="text-red-500">*</span>
+                </label>
+                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                  已选择 {formData.permissionCodes.length} 个权限
+                </span>
+              </div>
+              <div className="border border-gray-200 rounded-xl p-5 max-h-64 overflow-y-auto bg-gradient-to-br from-gray-50 to-white space-y-5">
                 {permissions
                   .filter(g => formData.type === 'system' ? g.permissions.some(p => p.scope !== 'tenant') : g.permissions.some(p => p.scope !== 'system'))
                   .map((group) => (
-                    <div key={group.resource}>
-                      <h4 className="font-medium text-gray-800 mb-2 capitalize">
+                    <div key={group.resource} className="bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-300 transition-colors">
+                      <h4 className="font-semibold text-gray-800 mb-3 text-sm uppercase tracking-wide flex items-center gap-2">
+                        <span className="w-1 h-4 bg-blue-600 rounded-full"></span>
                         {group.resource}
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {group.permissions
                           .filter(p => formData.type === 'system' ? p.scope !== 'tenant' : p.scope !== 'system')
                           .map((perm) => (
-                            <label
+                            <div
                               key={perm.id}
-                              className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm cursor-pointer transition-colors ${
+                              role="button"
+                              aria-pressed={formData.permissionCodes.includes(perm.code)}
+                              className={`inline-flex items-center px-3.5 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all duration-150 border-2 ${
                                 formData.permissionCodes.includes(perm.code)
-                                  ? 'bg-blue-100 text-blue-800 border-blue-300'
-                                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                              } border`}
+                                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-md scale-105'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+                              }`}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                togglePermission(perm.code);
+                              }}
                             >
-                              <input
-                                type="checkbox"
-                                className="sr-only"
-                                checked={formData.permissionCodes.includes(perm.code)}
-                                onChange={() => togglePermission(perm.code)}
-                              />
                               {perm.name}
-                            </label>
+                            </div>
                           ))}
                       </div>
                     </div>
                   ))}
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                已选择 {formData.permissionCodes.length} 个权限
-              </p>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setDialogOpen(false)}>
+          <DialogFooter className="border-t bg-gray-50 px-6 py-4 flex-shrink-0">
+            <Button 
+              variant="secondary" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setDialogOpen(false);
+              }}
+              className="hover:bg-gray-200"
+            >
               取消
             </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSave();
+              }}
+              disabled={isSaving}
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-md"
+            >
               {isSaving ? '保存中...' : '保存'}
             </Button>
           </DialogFooter>
@@ -424,7 +461,7 @@ export default function RolesPage() {
 
       {/* 删除确认对话框 */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent onClose={() => setDeleteDialogOpen(false)}>
           <DialogHeader>
             <DialogTitle>确认删除角色</DialogTitle>
             <DialogDescription>
@@ -433,12 +470,21 @@ export default function RolesPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setDeleteDialogOpen(false)}>
+            <Button 
+              variant="secondary" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteDialogOpen(false);
+              }}
+            >
               取消
             </Button>
             <Button
               className="bg-red-600 hover:bg-red-700"
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}
               disabled={isDeleting}
             >
               {isDeleting ? '删除中...' : '确认删除'}

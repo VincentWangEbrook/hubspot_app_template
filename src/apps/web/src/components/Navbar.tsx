@@ -12,10 +12,13 @@ import {
   Briefcase,
   CreditCard,
   Shield,
+  ChevronLeft,
+  Layers,
 } from 'lucide-react';
 import { UserInfo } from '@/types';
+import { useTenant } from '@/context/TenantContext';
+import { getNavigationUrl, getLastTenantId } from '@/utils/tenantUrl';
 
-// 菜单项类型定义
 interface MenuItem {
   label: string;
   path: string;
@@ -24,41 +27,41 @@ interface MenuItem {
   requiredPermission?: string;
 }
 
-// 菜单配置
 const menuConfig: MenuItem[] = [
   {
     label: 'Reports',
     path: '/reports',
-    icon: <BarChart size={18} />,
+    icon: <BarChart size={20} />,
   },
   {
     label: 'HubSpot',
     path: '/hubspot',
-    icon: <Briefcase size={18} />,
-    children: [
-      { label: '联系人', path: '/hubspot/contacts' },
-      { label: 'LINE 聊天', path: '/hubspot/line-chat' },
-    ],
+    icon: <Briefcase size={20} />,
+    // children: [
+    //   { label: '联系人', path: '/hubspot/contacts'},
+    //   { label: '公司', path: '/hubspot/companies'},
+    //   { label: 'LINE 聊天', path: '/hubspot/line-chat', requiredPermission: 'line:read' },
+    // ],
   },
   {
     label: '订阅管理',
     path: '/subscription',
-    icon: <CreditCard size={18} />,
+    icon: <CreditCard size={20} />,
   },
   {
     label: '设置',
     path: '/settings',
-    icon: <Settings size={18} />,
+    icon: <Settings size={20} />,
     children: [
       { label: '个人资料', path: '/settings/profile' },
       { label: '安全设置', path: '/settings/security' },
-      { label: '租户管理', path: '/settings/tenants' },
+      { label: '租户管理', path: '/settings/tenants', requiredPermission: 'tenant:read' },
     ],
   },
   {
     label: '系统管理',
     path: '/system',
-    icon: <Shield size={18} />,
+    icon: <Shield size={20} />,
     children: [
       { label: '用户管理', path: '/system/accounts', requiredPermission: 'user:read' },
       { label: '租户管理', path: '/system/tenants', requiredPermission: 'tenant:read' },
@@ -69,7 +72,6 @@ const menuConfig: MenuItem[] = [
   },
 ];
 
-// Props
 interface NavbarProps {
   onCollapseChange: (isCollapsed: boolean) => void;
   user: UserInfo;
@@ -81,13 +83,25 @@ export default function Navbar({ onCollapseChange, user }: NavbarProps) {
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const currentPath = usePathname();
   const navRef = useRef<HTMLDivElement>(null);
+  const { tenantId } = useTenant();
 
-  // 折叠状态变化时通知父布局
+  const isInTenantContext = !!tenantId;
+
+  const getMenuUrl = (basePath: string): string => {
+    const effectiveTenantId = tenantId || getLastTenantId();
+    return getNavigationUrl(basePath, effectiveTenantId);
+  };
+
+  const isTenantLevelMenu = (basePath: string): boolean => {
+    return basePath.startsWith('/hubspot') || 
+           basePath.startsWith('/reports') || 
+           basePath.startsWith('/subscription');
+  };
+
   useEffect(() => {
     onCollapseChange(isCollapsed);
   }, [isCollapsed, onCollapseChange]);
 
-  // 点击页面其他区域关闭移动端菜单
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (navRef.current && !navRef.current.contains(e.target as Node)) {
@@ -101,7 +115,6 @@ export default function Navbar({ onCollapseChange, user }: NavbarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMobileMenuOpen, user]);
 
-  // 自动展开当前路径对应的父菜单
   useEffect(() => {
     menuConfig.forEach((menu) => {
       if (menu.children?.some((child) => currentPath?.startsWith(child.path))) {
@@ -112,12 +125,10 @@ export default function Navbar({ onCollapseChange, user }: NavbarProps) {
     });
   }, [currentPath]);
 
-  // 切换折叠状态
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
   };
 
-  // 切换子菜单展开/收起
   const toggleSubmenu = (path: string) => {
     setExpandedMenus((prev) =>
       prev.includes(path)
@@ -126,16 +137,11 @@ export default function Navbar({ onCollapseChange, user }: NavbarProps) {
     );
   };
 
-  // 检查单个菜单项是否有权限
-  // manage 权限自动包含同资源的 read/create/update/delete 权限
   const hasPermission = (menu: MenuItem): boolean => {
     if (!menu.requiredPermission) return true;
     const permissions = user.permissions ?? [];
-    
-    // 直接匹配
     if (permissions.includes(menu.requiredPermission)) return true;
     
-    // 检查是否有对应的 manage 权限
     const [resource, action] = menu.requiredPermission.split(':');
     if (action && action !== 'manage') {
       const managePermission = `${resource}:manage`;
@@ -145,135 +151,272 @@ export default function Navbar({ onCollapseChange, user }: NavbarProps) {
     return false;
   };
 
-  // 检查菜单是否应该显示（权限控制）
   const shouldShowMenu = (menu: MenuItem): boolean => {
-    // 如果有子菜单，检查是否有任何子菜单有权限
     if (menu.children && menu.children.length > 0) {
       return menu.children.some(hasPermission);
     }
-    // 无子菜单，检查自身权限
     return hasPermission(menu);
   };
 
-  // 过滤有权限的子菜单
   const getVisibleChildren = (menu: MenuItem): MenuItem[] => {
     if (!menu.children) return [];
     return menu.children.filter(hasPermission);
   };
 
-  // 检查路径是否激活
   const isPathActive = (path: string): boolean => {
     return currentPath?.startsWith(path) ?? false;
   };
 
   if (!user) return null;
 
-  // 过滤有权限的菜单
   const visibleMenus = menuConfig.filter(shouldShowMenu);
 
   return (
-    <div className="h-full bg-white border-r border-gray-200 transition-all duration-300 flex flex-col">
-      {/* 移动端菜单触发按钮 */}
+    <>
+      {/* Mobile Menu Button - Positioned below toolbar */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="md:hidden fixed top-4 right-4 z-50 p-2 bg-white shadow-md rounded"
+        className="md:hidden fixed top-20 left-4 z-40 p-2.5 bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg rounded-xl hover:shadow-xl transition-all duration-200"
       >
-        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
 
-      {/* 侧边栏容器 */}
+      {/* Sidebar */}
       <nav
         ref={navRef}
         className={`
-          ${isMobileMenuOpen ? 'fixed inset-0 z-40 bg-white p-4' : 'hidden md:flex md:flex-col'}
-          md:fixed md:top-0 md:left-0 md:h-screen md:p-4 md:bg-gray-50 md:border-r
-          transition-all duration-300
-          ${isCollapsed ? 'md:w-16' : 'md:w-56'}
+          ${isMobileMenuOpen ? 'fixed inset-0 z-40' : 'hidden md:block'}
+          md:fixed md:top-0 md:left-0 md:h-screen
+          transition-all duration-300 ease-in-out
+          ${isCollapsed ? 'md:w-20' : 'md:w-64'}
         `}
       >
-        <div className="mb-6">
-          {!isCollapsed && (
-            <h1 className="text-xl font-bold flex items-center gap-2">
-              <span className="text-blue-600">HubSpot</span>
-            </h1>
-          )}
-        </div>
-
-        <ul className="space-y-1 flex-1 overflow-y-auto">
-          {visibleMenus.map((menu) => (
-            <li key={menu.path}>
-              {menu.children ? (
-                // 有子菜单的父菜单项
-                <div>
-                  <button
-                    onClick={() => toggleSubmenu(menu.path)}
-                    className={`w-full flex items-center gap-3 py-2 px-3 rounded transition-colors ${
-                      isPathActive(menu.path) 
-                        ? 'bg-blue-50 text-blue-700' 
-                        : 'hover:bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    {menu.icon}
-                    {!isCollapsed && (
-                      <>
-                        <span className="flex-1 text-left">{menu.label}</span>
-                        {expandedMenus.includes(menu.path) ? (
-                          <ChevronDown size={16} />
-                        ) : (
-                          <ChevronRight size={16} />
-                        )}
-                      </>
-                    )}
-                  </button>
-                  
-                  {/* 子菜单 */}
-                  {!isCollapsed && expandedMenus.includes(menu.path) && (
-                    <ul className="ml-6 mt-1 space-y-1 border-l border-gray-200 pl-3">
-                      {getVisibleChildren(menu).map((child) => (
-                        <li key={child.path}>
-                          <Link
-                            href={child.path}
-                            className={`block py-1.5 px-2 rounded text-sm transition-colors ${
-                              currentPath === child.path
-                                ? 'bg-blue-100 text-blue-700 font-medium'
-                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                            }`}
-                            onClick={() => setIsMobileMenuOpen(false)}
-                          >
-                            {child.label}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+        <div className={`
+          h-full flex flex-col
+          bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900
+          ${isMobileMenuOpen ? 'p-6' : 'md:p-4'}
+          shadow-2xl
+        `}>
+          {/* Logo */}
+          <div className="mb-8 flex items-center justify-between">
+            {!isCollapsed && (
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg">
+                  <Layers size={18} className="text-white" />
                 </div>
-              ) : (
-                // 无子菜单的菜单项
-                <Link
-                  href={menu.path}
-                  className={`flex items-center gap-3 py-2 px-3 rounded transition-colors ${
-                    isPathActive(menu.path) 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'hover:bg-gray-200 text-gray-700'
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {menu.icon}
-                  {!isCollapsed && <span>{menu.label}</span>}
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
+                <h1 className="text-xl font-bold text-white">
+                  HubSpot
+                </h1>
+              </div>
+            )}
+            {!isCollapsed && (
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="md:hidden p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={20} className="text-white" />
+              </button>
+            )}
+          </div>
 
-        {/* 折叠按钮 */}
-        <button
-          onClick={toggleCollapse}
-          className="mt-4 p-2 w-full flex items-center justify-center rounded hover:bg-gray-200 border-t pt-4"
-        >
-          {isCollapsed ? <ChevronRight size={20} /> : <ChevronDown size={20} />}
-        </button>
+          {/* Menu Items */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {/* Tenant Level Menus */}
+            {!isCollapsed && (
+              <div className="px-3 py-2 mb-2">
+                <span className="text-xs font-semibold text-blue-300 uppercase tracking-wider">
+                  租户功能
+                </span>
+              </div>
+            )}
+            
+            <ul className="space-y-1 mb-6">
+              {visibleMenus.filter(menu => isTenantLevelMenu(menu.path)).map((menu) => (
+                <li key={menu.path}>
+                  {menu.children ? (
+                    <div>
+                      <button
+                        onClick={() => toggleSubmenu(menu.path)}
+                        className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-200 ${
+                          isPathActive(menu.path)
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg'
+                            : 'text-blue-100 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className={isCollapsed ? 'mx-auto' : ''}>
+                          {menu.icon}
+                        </div>
+                        {!isCollapsed && (
+                          <>
+                            <span className="flex-1 text-left font-medium">{menu.label}</span>
+                            {expandedMenus.includes(menu.path) ? (
+                              <ChevronDown size={16} />
+                            ) : (
+                              <ChevronRight size={16} />
+                            )}
+                          </>
+                        )}
+                      </button>
+                      
+                      {!isCollapsed && expandedMenus.includes(menu.path) && (
+                        <ul className="ml-6 mt-1 space-y-1 border-l-2 border-blue-400/30 pl-4">
+                          {getVisibleChildren(menu).map((child) => (
+                            <li key={child.path}>
+                              <Link
+                                href={getMenuUrl(child.path)}
+                                className={`block py-2 px-3 rounded-lg text-sm transition-all duration-200 ${
+                                  currentPath === child.path
+                                    ? 'bg-blue-500/20 text-white font-medium'
+                                    : 'text-blue-200 hover:bg-white/5 hover:text-white'
+                                }`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                              >
+                                {child.label}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : (
+                    <Link
+                      href={getMenuUrl(menu.path)}
+                      className={`flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-200 ${
+                        isPathActive(menu.path)
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg'
+                          : 'text-blue-100 hover:bg-white/10'
+                      }`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <div className={isCollapsed ? 'mx-auto' : ''}>
+                        {menu.icon}
+                      </div>
+                      {!isCollapsed && (
+                        <span className="font-medium">{menu.label}</span>
+                      )}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            {/* System Level Menus */}
+            {!isCollapsed && visibleMenus.some(m => !isTenantLevelMenu(m.path)) && (
+              <>
+                <div className="border-t border-white/10 my-4" />
+                <div className="px-3 py-2 mb-2">
+                  <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">
+                    系统与设置
+                  </span>
+                </div>
+              </>
+            )}
+            
+            <ul className="space-y-1">
+              {visibleMenus.filter(menu => !isTenantLevelMenu(menu.path)).map((menu) => (
+                <li key={menu.path}>
+                  {menu.children ? (
+                    <div>
+                      <button
+                        onClick={() => toggleSubmenu(menu.path)}
+                        className={`w-full flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-200 ${
+                          isPathActive(menu.path)
+                            ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
+                            : 'text-blue-100 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className={isCollapsed ? 'mx-auto' : ''}>
+                          {menu.icon}
+                        </div>
+                        {!isCollapsed && (
+                          <>
+                            <span className="flex-1 text-left font-medium">{menu.label}</span>
+                            {expandedMenus.includes(menu.path) ? (
+                              <ChevronDown size={16} />
+                            ) : (
+                              <ChevronRight size={16} />
+                            )}
+                          </>
+                        )}
+                      </button>
+                      
+                      {!isCollapsed && expandedMenus.includes(menu.path) && (
+                        <ul className="ml-6 mt-1 space-y-1 border-l-2 border-purple-400/30 pl-4">
+                          {getVisibleChildren(menu).map((child) => (
+                            <li key={child.path}>
+                              <Link
+                                href={getMenuUrl(child.path)}
+                                className={`block py-2 px-3 rounded-lg text-sm transition-all duration-200 ${
+                                  currentPath === child.path
+                                    ? 'bg-purple-500/20 text-white font-medium'
+                                    : 'text-blue-200 hover:bg-white/5 hover:text-white'
+                                }`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                              >
+                                {child.label}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : (
+                    <Link
+                      href={getMenuUrl(menu.path)}
+                      className={`flex items-center gap-3 py-2.5 px-3 rounded-xl transition-all duration-200 ${
+                        isPathActive(menu.path)
+                          ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
+                          : 'text-blue-100 hover:bg-white/10'
+                      }`}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <div className={isCollapsed ? 'mx-auto' : ''}>
+                        {menu.icon}
+                      </div>
+                      {!isCollapsed && (
+                        <span className="font-medium">{menu.label}</span>
+                      )}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Collapse Button */}
+          <button
+            onClick={toggleCollapse}
+            className="hidden md:flex items-center justify-center gap-2 mt-4 p-3 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all duration-200 border-t border-white/10 pt-4"
+          >
+            {isCollapsed ? (
+              <ChevronRight size={20} />
+            ) : (
+              <>
+                <ChevronLeft size={20} />
+                <span className="text-sm font-medium">收起</span>
+              </>
+            )}
+          </button>
+        </div>
       </nav>
-    </div>
+
+      {/* Custom Scrollbar Styles */}
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 100px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 100px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+      `}</style>
+    </>
   );
 }

@@ -51,9 +51,6 @@ export class TenantService {
     if (identifier.id) {
       t = await this.prisma.tenant.findUnique({ where: { id: identifier.id } });
     }
-    if (!t && identifier.hubspot_id) {
-      t = await this.prisma.tenant.findUnique({ where: { hubspotId: String(identifier.hubspot_id) } });
-    }
 
     // encrypt tokens in patch (if present)
     const p = { ...patch };
@@ -135,7 +132,7 @@ export class TenantService {
     if (idOrHubId.id) {
       t = await this.prisma.tenant.findUnique({ where: { id: idOrHubId.id } });
     } else if (idOrHubId.hubspot_id) {
-      t = await this.prisma.tenant.findUnique({ where: { hubspotId: idOrHubId.hubspot_id } });
+      t = await this.prisma.tenant.findFirst({ where: { hubspotId: idOrHubId.hubspot_id } });
     }
     if (!t) return null;
 

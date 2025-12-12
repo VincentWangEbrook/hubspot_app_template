@@ -3,10 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useUser } from '@/context/UserContext';
-import { UserInfo } from '@/types';
-import { apiFetch } from '@/lib/apiFetch';
 import { Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { log } from 'console';
+import { getLastTenantId } from '@/utils/tenantUrl';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -19,7 +17,7 @@ export default function LoginPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const redirectTo = searchParams.get('redirect') || '/reports';
   const { user, login } = useUser();
 
   // 页面加载时：检查是否已登录，若已登录直接跳转到仪表盘（优化：添加加载状态避免闪烁）
@@ -70,9 +68,16 @@ export default function LoginPage() {
 
       // 严格判断接口返回数据
       if (isSuccess) {
-        //  router.push(redirectTo); // 登录后跳回原页面
-        // 延迟跳转，确保 Context 状态同步完成
-        setTimeout(() => router.push('/dashboard'), 150);
+        // 登录成功后，重定向到最后访问的租户或租户选择页
+        const lastTenantId = getLastTenantId();
+        
+        if (lastTenantId) {
+          // 有最后访问的租户，重定向到该租户的首页
+          setTimeout(() => router.push(`/${lastTenantId}/hubspot`), 150);
+        } else {
+          // 无最后访问的租户，重定向到租户选择页
+          setTimeout(() => router.push('/settings/tenants'), 150);
+        }
       } else {
         setError('登录失败，请检查邮箱和密码是否正确');
       }

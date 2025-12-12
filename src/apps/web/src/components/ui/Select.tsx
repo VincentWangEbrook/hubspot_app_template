@@ -59,12 +59,15 @@ export function Select({
   // 点击外部关闭下拉框
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        triggerRef.current &&
-        contentRef.current &&
-        !triggerRef.current.contains(e.target as Node) &&
-        !contentRef.current.contains(e.target as Node)
-      ) {
+      if (!triggerRef.current) return;
+      
+      // 如果点击的是 trigger，不处理（由 toggleOpen 处理）
+      if (triggerRef.current.contains(e.target as Node)) {
+        return;
+      }
+      
+      // 如果下拉菜单打开且点击的不是 content，关闭菜单
+      if (contentRef.current && !contentRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -86,60 +89,98 @@ export function Select({
     setIsOpen(false);
   };
 
+  // 从 children 中提取 SelectContent 和 SelectTrigger
+  const selectTrigger = React.Children.toArray(children).find(
+    (child) => isValidElement(child) && child.type === SelectTrigger
+  ) as React.ReactElement<SelectTriggerProps> | undefined;
+
+  const selectContent = React.Children.toArray(children).find(
+    (child) => isValidElement(child) && child.type === SelectContent
+  ) as React.ReactElement<SelectContentProps> | undefined;
+
+  // 从 SelectContent 中找到匹配当前 value 的 SelectItem，获取其显示文本
+  const getSelectedLabel = (): string => {
+    if (!value || !selectContent) return '';
+    
+    let selectedLabel = '';
+    React.Children.forEach(selectContent.props.children, (child) => {
+      if (isValidElement(child) && child.type === SelectItem) {
+        const selectItemChild = child as React.ReactElement<SelectItemProps>;
+        if (selectItemChild.props.value === value) {
+          // 获取 SelectItem 的 children 作为显示文本
+          selectedLabel = typeof selectItemChild.props.children === 'string' 
+            ? selectItemChild.props.children 
+            : String(selectItemChild.props.children);
+        }
+      }
+    });
+    
+    return selectedLabel;
+  };
+
+  const selectedLabel = getSelectedLabel();
+
+  const handleTriggerClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleOpen();
+  };
+
   return (
     <div className={`relative inline-block w-full ${className}`}>
-      <SelectTrigger
-        ref={triggerRef}
-        onClick={toggleOpen}
-        disabled={disabled}
-        aria-expanded={isOpen}
-        name={name}
-      >
-        {React.Children.map(children, (child) => {
-          // 严格类型守卫：确保是 SelectValue 组件
-          if (isValidElement(child) && child.type === SelectValue) {
-            // 断言为 SelectValue 组件类型，明确 props 结构
-            const selectValueChild = child as React.ReactElement<SelectValueProps>;
-            // 安全取值：使用可选链+空值合并，避免 undefined 报错
-            const childPlaceholder = selectValueChild.props?.placeholder;
-            const finalPlaceholder = childPlaceholder ?? placeholder ?? '请选择';
-            
-            return React.cloneElement(selectValueChild, {
-              value,
-              placeholder: finalPlaceholder,
-            });
-          }
-          return child;
-        })}
-        {/* 隐藏的 input 用于表单提交 */}
-        {name && (
-          <input
-            type="hidden"
-            name={name}
-            value={value || ''}
-            disabled={disabled}
-          />
-        )}
-      </SelectTrigger>
-
-      {isOpen && (
-        <SelectContent
-          ref={contentRef}
-          aria-hidden={!isOpen}
-        >
-          {React.Children.map(children, (child) => {
-            // 严格类型守卫：确保是 SelectItem 组件
-            if (isValidElement(child) && child.type === SelectItem) {
-              const selectItemChild = child as React.ReactElement<SelectItemProps>;
-              return React.cloneElement(selectItemChild, {
-                onClick: () => handleItemClick(selectItemChild.props.value),
-                disabled: disabled || selectItemChild.props.disabled,
-                'data-selected': value === selectItemChild.props.value,
-              });
-            }
-            return child;
+      {selectTrigger && (
+        <div ref={triggerRef} onClick={handleTriggerClick}>
+          {React.cloneElement(selectTrigger, {
+            disabled,
+            'aria-expanded': isOpen,
+            children: (
+              <>
+                {React.Children.map(selectTrigger.props.children, (child) => {
+                  // 严格类型守卫：确保是 SelectValue 组件
+                  if (isValidElement(child) && child.type === SelectValue) {
+                    const selectValueChild = child as React.ReactElement<SelectValueProps>;
+                    const childPlaceholder = selectValueChild.props?.placeholder;
+                    const finalPlaceholder = childPlaceholder ?? placeholder ?? '请选择';
+                    
+                    return React.cloneElement(selectValueChild, {
+                      value: selectedLabel, // 使用选中项的显示文本而不是原始 value
+                      placeholder: finalPlaceholder,
+                    });
+                  }
+                  return child;
+                })}
+                {/* 隐藏的 input 用于表单提交 */}
+                {name && (
+                  <input
+                    type="hidden"
+                    name={name}
+                    value={value || ''}
+                    disabled={disabled}
+                  />
+                )}
+              </>
+            ),
           })}
-        </SelectContent>
+        </div>
+      )}
+
+      {isOpen && selectContent && (
+        <div ref={contentRef}>
+          {React.cloneElement(selectContent, {
+            'aria-hidden': !isOpen,
+            children: React.Children.map(selectContent.props.children, (child) => {
+              // 严格类型守卫：确保是 SelectItem 组件
+              if (isValidElement(child) && child.type === SelectItem) {
+                const selectItemChild = child as React.ReactElement<SelectItemProps>;
+                return React.cloneElement(selectItemChild, {
+                  onClick: () => handleItemClick(selectItemChild.props.value),
+                  disabled: disabled || selectItemChild.props.disabled,
+                  'data-selected': value === selectItemChild.props.value,
+                });
+              }
+              return child;
+            }),
+          })}
+        </div>
       )}
     </div>
   );

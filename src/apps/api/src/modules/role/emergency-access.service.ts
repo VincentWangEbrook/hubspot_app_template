@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenEx
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditLogService, AuditActions } from './audit-log.service';
 import { PermissionService } from './permission.service';
+import { CreateEmergencyAccessDto } from './dto/emergency-access.dto';
 
 export interface EmergencyAccessRequestDto {
   id: string;
@@ -28,13 +29,6 @@ export interface EmergencyAccessRequestDto {
     id: string;
     name: string;
   };
-}
-
-export interface CreateEmergencyAccessDto {
-  tenantId: string;
-  reason: string;
-  scope: string[];
-  durationHours?: number; // 默认 2 小时
 }
 
 @Injectable()

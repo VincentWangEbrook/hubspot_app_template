@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/apiFetch';
+import { useUser } from '@/context/UserContext';
 import { Loader2, AlertCircle, CheckCircle2, ArrowLeft, Mail } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
@@ -13,6 +14,16 @@ export default function ForgotPasswordPage() {
   const [emailFocused, setEmailFocused] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const redirectTo = searchParams.get('redirect') || '/reports';
+  const { user, login } = useUser();
+
+  // 页面加载时：检查是否已登录，若已登录直接跳转到仪表盘（优化：添加加载状态避免闪烁）
+  if (user) {
+    // 延迟跳转，避免页面闪烁
+    setTimeout(() => router.push(redirectTo), 100);
+  }
 
   // 邮箱验证
   const validateEmail = (email: string) => {

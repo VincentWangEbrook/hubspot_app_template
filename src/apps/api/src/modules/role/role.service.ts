@@ -1,6 +1,8 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionService } from './permission.service';
+import { CreateRoleDto } from './dto/create-role.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
 
 export interface RoleDto {
   id: string;
@@ -22,21 +24,6 @@ export interface RoleWithPermissions extends RoleDto {
     resource: string;
     action: string;
   }>;
-}
-
-export interface CreateRoleDto {
-  code: string;
-  name: string;
-  description?: string;
-  type: 'system' | 'tenant';
-  tenantId?: string;
-  permissionCodes?: string[];
-}
-
-export interface UpdateRoleDto {
-  name?: string;
-  description?: string;
-  permissionCodes?: string[];
 }
 
 @Injectable()

@@ -10,7 +10,6 @@
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
     "outDir": "dist",
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@hubspot-app/shared/*": [

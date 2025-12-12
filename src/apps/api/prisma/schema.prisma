@@ -151,7 +151,7 @@ model User {
 model Tenant {
   id                  String    @id @default(uuid()) @db.Uuid
   name                String    @db.VarChar(255)
-  hubspotId           String    @unique @map("hubspot_id") @db.VarChar(100)
+  hubspotId           String    @map("hubspot_id") @db.VarChar(100)
   hubspotAccessToken  String?   @map("hubspot_access_token") @db.Text
   hubspotRefreshToken String?   @map("hubspot_refresh_token") @db.Text
   hubspotExpiresAt    Int?      @map("hubspot_expires_at")
@@ -243,4 +243,28 @@ model PasswordResetToken {
   @@index([token])
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+// HubSpot Sync History - tracks sync operations across all tenants
+model HubspotSyncHistory {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  syncType          String    @map("sync_type") @db.VarChar(20)  // 'full', 'incremental', 'webhook'
+  status            String    @db.VarChar(20)  // 'running', 'completed', 'failed', 'partial'
+  
+  totalRecords      Int       @default(0) @map("total_records")
+  processedRecords  Int       @default(0) @map("processed_records")
+  failedRecords     Int       @default(0) @map("failed_records")
+  
+  startedAt         DateTime  @map("started_at")
+  completedAt       DateTime? @map("completed_at")
+  errorMessage      String?   @map("error_message") @db.Text
+  errorDetails      Json?     @map("error_details")
+  
+  createdAt         DateTime  @default(now()) @map("created_at")
+  
+  @@index([tenantId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("hubspot_sync_history")
 }

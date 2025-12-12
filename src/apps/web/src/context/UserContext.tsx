@@ -24,20 +24,23 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
  * 包裹在根布局中，让所有子组件可访问用户状态
  */
 export function UserProvider({ children }: { children: ReactNode }) {
-  const {user: contextUser} = useAuth();
+  const { user: initialUser, isLoading: initialLoading } = useAuth();
   const [user, setUser] = useState<UserInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // 初始化加载状态
+  // Track if we have initialized state from useAuth
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // 页面加载时：从 localStorage 读取用户信息和 token，恢复登录状态
+  // Sync user state from useAuth once loaded
   useEffect(() => {
-    const initUserState = () => {
-      if (contextUser) {
-        setUser(contextUser);
+    if (!initialLoading) {
+      if (initialUser) {
+        setUser(initialUser);
       }
-      setIsLoading(false);
-    };
-    initUserState();
-  }, [contextUser]);
+      setIsInitialized(true);
+    }
+  }, [initialUser, initialLoading]);
+
+  // Combine loading states: strictly wait for both auth check AND local sync
+  const isLoading = initialLoading || !isInitialized;
 
   // 登录方法：更新全局状态 + 保存到本地存储
   const login = async ({email, password}) => {
@@ -74,10 +77,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       data: updateProfile,
     });
 
-  if (response.success && response.data?.user) {
-    setUser(prev => ({ ...prev, ...response.data.user }));
-    return true;
-  }
+    if (response.success && response.data?.user) {
+      setUser(prev => ({ ...prev, ...response.data.user }));
+      return true;
+    }
     return false;
   };
 

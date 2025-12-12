@@ -55,6 +55,12 @@ export async function apiFetch<T = unknown>(
     // 统一处理 Headers（兼容多种格式，类型安全）
     const headers = normalizeHeaders(customHeaders);
 
+    // 自动提取 tenantId 并添加到 header（多租户支持）
+    const tenantId = extractTenantIdFromPath(path);
+    if (tenantId && !headers['X-Tenant-Id'] && !headers['x-tenant-id']) {
+      headers['X-Tenant-Id'] = tenantId;
+    }
+
     // 认证逻辑预处理（抽离为独立逻辑，便于维护）
     const authError = handleAuth({ requireAuth, authMode, headers });
     if (authError) {
@@ -142,6 +148,25 @@ function normalizeHeaders(customHeaders?: HeadersInit): Record<string, string> {
   }
 
   return headers;
+}
+
+/**
+ * 工具函数：从 URL 路径中提取 tenantId（支持查询参数）
+ * @param path API 路径
+ * @returns tenantId 或 undefined
+ */
+function extractTenantIdFromPath(path: string): string | undefined {
+  try {
+    // 检查是否包含查询参数
+    const urlParts = path.split('?');
+    if (urlParts.length < 2) return undefined;
+    
+    // 解析查询参数
+    const params = new URLSearchParams(urlParts[1]);
+    return params.get('tenantId') || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

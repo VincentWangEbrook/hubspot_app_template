@@ -6,7 +6,7 @@ if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
 
 // 配置常量（集中管理，便于维护）
 const CONFIG = {
-  PROTECTED_ROUTES: ['/dashboard', '/admin', '/settings'], // 需要登录的路由前缀
+  PROTECTED_ROUTES: ['/reports', '/admin', '/settings', '/system', '/tenant', '/hubspot'], // 需要登录的路由前缀
   LOGIN_PATH: '/login', // 登录页路径
   API_AUTH_CHECK: new URL('auth/me', process.env.NEXT_PUBLIC_BACKEND_URL).toString(),
   CACHE_TTL: 30, // 鉴权结果缓存时间（秒），减少重复请求
@@ -14,8 +14,13 @@ const CONFIG = {
 
 export async function proxy(req: NextRequest) {
   const { pathname, origin } = req.nextUrl;
-  // 公共路由直接放行（跳过鉴权，提升性能）
-  if (!CONFIG.PROTECTED_ROUTES.some(route => pathname.startsWith(route))) {
+  // 检查是否受保护路由
+  const isProtectedRoute = CONFIG.PROTECTED_ROUTES.some(route => pathname.startsWith(route));
+  // 检查动态租户路由 (e.g. /:tenantId/hubspot/...)
+  const isTenantHubspotRoute = /^\/[^/]+\/hubspot/.test(pathname);
+
+  // 如果不是受保护路由且不是租户Hubspot路由，则放行
+  if (!isProtectedRoute && !isTenantHubspotRoute) {
     return NextResponse.next();
   }
 
@@ -76,10 +81,13 @@ function redirectToLogin(originalPath: string, origin: string) {
 // 优化 matcher：精确匹配受保护路由，避免不必要的触发
 export const config = {
   matcher: [
-    '/dashboard/:path*',
+    '/reports/:path*',
     '/admin/:path*',
     '/settings/:path*',
-    // 排除静态资源（如 /dashboard/_next/...），进一步提升性能
+    '/system/:path*',
+    '/tenant/:path*',
+    '/:tenantId/hubspot/:path*',
+    // 排除静态资源（如 /reports/_next/...），进一步提升性能
     {
       source: '/:path*',
       missing: [
