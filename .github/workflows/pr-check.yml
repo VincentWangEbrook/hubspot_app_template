@@ -1,0 +1,36 @@
+name: PR Checklist Validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  checklist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate base branch
+        run: |
+          if [ "${{ github.base_ref }}" != "develop" ]; then
+            echo "❌ PR base must be develop"
+            exit 1
+          fi
+
+      - name: Ensure checklist confirmation
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          echo "$BODY" | grep -q "我已确认以上内容准确" || {
+            echo "❌ Checklist confirmation missing"
+            exit 1
+          }
+
+      - name: OAuth scopes mention required if scopes changed
+        run: |
+          git fetch origin develop
+          if git diff origin/develop...HEAD | grep -q "scopes"; then
+            echo "$BODY" | grep -q "OAuth / Scopes" || {
+              echo "❌ Scopes changed but not documented"
+              exit 1
+            }
+          fi
