@@ -81,7 +81,11 @@
   
 - 涉及 OAuth scopes 变更的 PR，必须确认已在 HubSpot App 配置中同步更新
 
+## Final Human Confirmation
 
+- [ ] I have reviewed CI results and Bugbot feedback
+- [ ] I confirm this PR is safe to merge
+- [ ] 
 ---
 
 <details>

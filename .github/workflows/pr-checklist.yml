@@ -1,0 +1,39 @@
+name: PR Checklist Validation
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1️⃣ Base 分支强制
+      - name: Base branch must be develop
+        run: |
+          if [ "${{ github.base_ref }}" != "develop" ]; then
+            echo "❌ PR base branch must be develop"
+            exit 1
+          fi
+
+      # 2️⃣ 人工确认口令
+      - name: Final confirmation required
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          echo "$BODY" | grep -q "确认创建 PR" || {
+            echo "❌ Missing final human confirmation"
+            exit 1
+          }
+
+      # 3️⃣ 禁止直接修改 develop
+      - name: No direct develop modifications
+        run: |
+          git fetch origin develop
+          if git diff origin/develop...HEAD --name-only | grep -q '^develop/'; then
+            echo "❌ Direct develop modifications detected"
+            exit 1
+          fi

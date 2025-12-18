@@ -1,0 +1,16 @@
+name: Bugbot Blocker Gate
+
+on:
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  bugbot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fail on Bugbot Blocker
+        if: contains(github.event.comment.body, '❌ Blocker')
+        run: |
+          echo "❌ Bugbot reported a blocker"
+          exit 1
