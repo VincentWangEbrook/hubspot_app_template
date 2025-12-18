@@ -83,9 +83,10 @@
 
 ## Final Human Confirmation
 
+- [ ] 确认创建 PR
 - [ ] I have reviewed CI results and Bugbot feedback
 - [ ] I confirm this PR is safe to merge
-- [ ] 
+
 ---
 
 <details>
@@ -100,22 +101,22 @@ Please perform a strict review focusing on:
 - No merge commits from develop
 - Rebase-based history only
 
-2. HubSpot OAuth & Scopes
+1. HubSpot OAuth & Scopes
 - Detect scopes changes
 - Verify scopes are minimal
 - Ensure scopes are synced with HubSpot App settings
 
-3. Multi-tenant Safety
+1. Multi-tenant Safety
 - Token isolation per tenant
 - No cross-tenant data leakage
 - search_path or tenant scoping correctness
 
-4. Security
+1. Security
 - OAuth redirect URI validation
 - Refresh token safety
 - No secrets in logs
 
-5. Integration correctness
+1. Integration correctness
 - ERP import idempotency
 - Retry & failure handling
 - Partial sync safety
