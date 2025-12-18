@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------- Models -----------------
+
+// ========== RBAC 权限系统 ==========
+
+// 权限表 - 定义所有可用权限（资源:操作）
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(100) // 权限代码：如 "user:read", "tenant:delete"
+  name        String   @db.VarChar(100)         // 显示名称："查看用户"
+  description String?  @db.VarChar(500)         // 描述
+  resource    String   @db.VarChar(50)          // 资源：user, tenant, role, hubspot...
+  action      String   @db.VarChar(50)          // 操作：create, read, update, delete, manage, *
+  scope       String   @default("all") @db.VarChar(20) // 作用域：system, tenant, all
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@index([resource])
+  @@index([scope])
+  @@map("permissions")
+}
+
+// 角色表 - 支持系统级和租户级角色
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(50)  // 角色代码：super_admin, tenant_owner
+  name        String   @db.VarChar(100)         // 显示名称
+  description String?  @db.VarChar(500)
+  type        String   @db.VarChar(20)          // system（系统级）或 tenant（租户级）
+  isSystem    Boolean  @default(false) @map("is_system") // 是否系统内置（不可删除）
+  tenantId    String?  @map("tenant_id") @db.Uuid // 租户自定义角色时关联租户
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  tenantMembers   TenantMember[]
+  tenant          Tenant?          @relation("TenantCustomRoles", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+// 角色-权限关联表
+model RolePermission {
+  id           String   @id @default(uuid()) @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// 用户-系统角色关联表
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@map("user_roles")
+}
+
+// 紧急访问请求表 - 超级管理员申请访问租户数据
+model EmergencyAccessRequest {
+  id          String    @id @default(uuid()) @db.Uuid
+  requesterId String    @map("requester_id") @db.Uuid  // 申请人（超级管理员）
+  tenantId    String    @map("tenant_id") @db.Uuid     // 目标租户
+  reason      String    @db.Text                        // 申请原因
+  scope       String[]                                  // 申请访问的权限范围
+  status      String    @default("pending") @db.VarChar(20) // pending, approved, rejected, expired
+  approverId  String?   @map("approver_id") @db.Uuid   // 审批人
+  approvedAt  DateTime? @map("approved_at")
+  expiresAt   DateTime  @map("expires_at")             // 访问权限过期时间
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  requester User   @relation("EmergencyRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  approver  User?  @relation("EmergencyApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId])
+  @@index([tenantId])
+  @@index([status])
+  @@map("emergency_access_requests")
+}
+
+// 审计日志表 - 记录所有敏感操作
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid         // 操作人
+  action     String   @db.VarChar(100)                 // 操作类型
+  resource   String   @db.VarChar(50)                  // 资源类型
+  resourceId String?  @map("resource_id") @db.VarChar(100) // 资源ID
+  tenantId   String?  @map("tenant_id") @db.Uuid       // 涉及的租户
+  details    Json?                                      // 详细信息
+  ipAddress  String?  @map("ip_address") @db.VarChar(50)
+  userAgent  String?  @map("user_agent") @db.VarChar(500)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ========== 用户与租户 ==========
+
+model User {
+  id         String   @id @default(uuid()) @db.Uuid
+  email      String   @unique @db.VarChar(255)
+  password   String   @db.VarChar(255)
+  username   String   @db.VarChar(100)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  tenantMemberships        TenantMember[]
+  createdTenants           Tenant[]                  @relation("TenantCreator")
+  passwordResetTokens      PasswordResetToken[]
+  userRoles                UserRole[]
+  auditLogs                AuditLog[]
+  emergencyRequestsMade    EmergencyAccessRequest[]  @relation("EmergencyRequester")
+  emergencyRequestsApproved EmergencyAccessRequest[] @relation("EmergencyApprover")
+
+  @@map("users")
+}
+
+model Tenant {
+  id                  String    @id @default(uuid()) @db.Uuid
+  name                String    @db.VarChar(255)
+  hubspotId           String    @map("hubspot_id") @db.VarChar(100)
+  hubspotAccessToken  String?   @map("hubspot_access_token") @db.Text
+  hubspotRefreshToken String?   @map("hubspot_refresh_token") @db.Text
+  hubspotExpiresAt    Int?      @map("hubspot_expires_at")
+  hubspotScope        Json?     @map("hubspot_scope")
+  createdBy           String    @map("created_by") @db.Uuid
+  raw                 Json?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  members                 TenantMember[]
+  creator                 User                     @relation("TenantCreator", fields: [createdBy], references: [id])
+  customRoles             Role[]                   @relation("TenantCustomRoles")
+  emergencyAccessRequests EmergencyAccessRequest[]
+
+  @@map("tenants")
+}
+
+model TenantMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid       // 关联 Role 表
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, userId])
+  @@index([roleId])
+  @@map("tenant_members")
+}
+
+// ========== Tenant Schema Tables (Raw SQL Only) ==========
+// Note: The following tables exist in tenant-specific schemas (e.g., tenant_uuid.channels)
+// They are managed via SchemaManagerService.getTableDefinitions() and use Raw SQL queries.
+// See TenantPrismaService for the interface definitions.
+//
+// Tables in tenant schema:
+// - channels: Chat channels (LINE, WeChat, etc.)
+// - messages: Chat messages
+// - channel_configs: Channel credentials and settings
+// - hubspot_conversations: HubSpot conversation mappings
+// - hubspot_contacts: Cached HubSpot contacts
+// - hubspot_companies: Cached HubSpot companies
+
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// HubSpot Sync History - tracks sync operations across all tenants
+model HubspotSyncHistory {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  syncType          String    @map("sync_type") @db.VarChar(20)  // 'full', 'incremental', 'webhook'
+  status            String    @db.VarChar(20)  // 'running', 'completed', 'failed', 'partial'
+  
+  totalRecords      Int       @default(0) @map("total_records")
+  processedRecords  Int       @default(0) @map("processed_records")
+  failedRecords     Int       @default(0) @map("failed_records")
+  
+  startedAt         DateTime  @map("started_at")
+  completedAt       DateTime? @map("completed_at")
+  errorMessage      String?   @map("error_message") @db.Text
+  errorDetails      Json?     @map("error_details")
+  
+  createdAt         DateTime  @default(now()) @map("created_at")
+  
+  @@index([tenantId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("hubspot_sync_history")
+}
